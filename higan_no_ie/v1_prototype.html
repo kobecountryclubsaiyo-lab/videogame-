@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>彼岸の家｜ストーリー型ゲーム試作</title>
+<style>
+:root{color-scheme:dark;--bg:#171916;--panel:#232720;--panel2:#1b1f1a;--line:#454b40;--ink:#eeeade;--muted:#b5b5a9;--gold:#c9b27c;--red:#a85e57}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Yu Gothic",sans-serif}
+header{padding:22px max(18px,calc((100% - 1100px)/2));background:#242820;border-bottom:1px solid var(--line)}
+h1{font-size:1.45rem;margin:0}header p{margin:5px 0 0;color:var(--muted)}
+main{max-width:1100px;margin:22px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:17px;margin-bottom:14px}
+h2{font-size:1.12rem;margin:0 0 12px}h3{font-size:.98rem;margin:14px 0 6px;color:#e0d5b8}
+.muted,small{color:var(--muted)}.muted{font-size:.9rem}
+.story{background:#181c17;border-left:3px solid var(--gold);padding:14px;border-radius:5px;white-space:pre-line;margin:12px 0}
+.private{background:#292b22;border:1px solid #5d5946;padding:13px;border-radius:8px;margin:9px 0}
+.tag{display:inline-block;border:1px solid #74694c;color:#e1d0a5;border-radius:30px;padding:2px 9px;font-size:.75rem;margin-right:5px}
+button,select,input{font:inherit}button{border:0;border-radius:8px;background:var(--gold);color:#191a16;font-weight:700;padding:10px 15px;cursor:pointer}
+button.secondary{background:#42483e;color:var(--ink)}button:disabled{opacity:.4;cursor:not-allowed}
+select{width:100%;background:#171b17;color:var(--ink);border:1px solid #596052;border-radius:7px;padding:10px;margin:6px 0 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1}
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.nav button{flex:1;min-width:95px}
+.nav button.active{outline:2px solid #f1e4bf;background:#e0c991;color:#171916}
+.card{background:var(--panel2);border:1px solid #3e443a;border-radius:8px;padding:12px;margin:8px 0}
+.choice{display:block;padding:8px 4px;border-bottom:1px solid #3b4038}.choice input{margin-right:8px;accent-color:var(--gold)}
+.log{max-height:390px;overflow:auto;font-size:.85rem}.log p{border-bottom:1px solid #393e36;margin:0;padding:7px 0}
+.hidden{display:none}.notice{padding:11px;background:#33372d;border-radius:7px;margin:10px 0}
+input[type=text]{width:100%;padding:10px;border-radius:7px;background:#171b17;color:var(--ink);border:1px solid #596052}
+footer{text-align:center;color:#92958a;font-size:.8rem;padding:8px 16px 28px}
+@media(max-width:780px){main{grid-template-columns:1fr;margin:12px auto}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<header><h1>彼岸の家 <span class="tag">ストーリー型プロトタイプ</span></h1><p>共通の状況 → 個別情報 → 対話 → 個別選択 → 結果描写</p></header>
+<main>
+<section>
+ <div class="panel" id="setup">
+  <h2>ゲーム開始</h2>
+  <p>4〜6人用の試作品です。今回は1台のブラウザを順番に受け渡して進めます。各プレイヤーの個別情報を他の人に見られないようにしてください。</p>
+  <label>参加人数</label><select id="count"><option value="4">4人（大家・夫・妻・尋ね人）</option><option value="5">5人（＋友人）</option><option value="6">6人（＋友人2人）</option></select>
+  <label>プレイヤー名は役割名で表示します（試作版）。</label>
+  <div class="notice">役割の人物像・秘密・個人目的、出来事、選択肢は現時点の設計をもとにした仮設定です。</div>
+  <button onclick="startGame()">開始する</button>
+ </div>
+ <div id="game" class="hidden">
+  <div class="panel">
+   <div><span class="tag" id="turnTag">第1ターン</span><span class="tag" id="phaseTag">共通状況</span></div>
+   <h2 id="heading"></h2><p class="muted" id="instruction"></p>
+   <div id="story"></div>
+   <div id="playerNav" class="nav"></div>
+   <div id="personal"></div>
+   <div class="row"><button class="secondary" onclick="movePlayer(-1)">前へ</button><button onclick="movePlayer(1)">次へ</button></div>
+  </div>
+  <div class="panel"><h2>進行</h2><div id="controls"></div></div>
+ </div>
+</section>
+<aside>
+ <div class="panel"><h2>ゲーム状況</h2><div id="status" class="muted">開始前</div></div>
+ <div class="panel"><h2>進行ログ</h2><div id="log" class="log muted">記録はありません。</div></div>
+ <div class="panel"><h2>この試作品について</h2><p class="muted">物語と選択肢を先にシステムが用意し、プレイヤーは対話してから選びます。会話の真偽や信頼関係はシステムが判定しません。</p><p class="muted">個別端末通信、ログイン、オンライン同期は未実装です。</p><button class="secondary" onclick="if(confirm('最初からやり直しますか？'))location.reload()">最初から</button></div>
+</aside>
+</main>
+<footer>設計確認用の試作品。選択肢・分岐・エンディングはテスト後に調整します。</footer>
+<script>
+const $=id=>document.getElementById(id);
+const roles=["大家","夫","妻","尋ね人","友人A","友人B"];
+const scenes=[
+ {title:"彼岸の夕暮れ",common:"彼岸の夕暮れ。古い家の居間に、あなたたちは集まっている。\n外へ出ようとした者は、いつの間にか同じ玄関へ戻ってきてしまった。\n妻は一枚の古い写真を手にしている。誰も、その写真についてまだ話していない。",phase:"対話のきっかけ"},
+ {title:"閉ざされた家",common:"外へ続くはずの玄関は、開けても同じ廊下へつながっている。\n家の奥から、ゆっくりと床を踏む音が聞こえた。\n誰かが一緒に動くのか、一人で確かめるのか。決めなければならない。",phase:"行動の選択"},
+ {title:"壁の向こう",common:"廊下の奥に、家具を動かしたような跡がある。\n壁の一部だけ、ほかより新しい。家の過去につながる何かが隠されているようだ。\n見つけたものを誰に伝えるかは、あなたたち次第だ。",phase:"秘密への接近"},
+ {title:"大家の判断",common:"家の中で物音が続く。誰かが奥の部屋に長く戻ってこない。\nこの家の過去を知る大家には、ほかの者とは違う情報が届く。\n家の空気は、確実に変わり始めている。",phase:"状況の変化"},
+ {title:"玄関の前",common:"家鳴りが激しくなり、壁に細い亀裂が走る。\n玄関の向こうには、外の景色が見える。だが、そこへ向かう前に決めなければならないことがある。\n全員が同じ選択をするとは限らない。",phase:"最終局面"}
+];
+const privateInfo={
+ "大家":[
+ "あなたは以前、この家に住んでいた人物を追い出した。その判断は家を守るためだったと考えている。",
+ "玄関から出られない現象は、あなたにも予想外だ。家の過去について、あなたが知らないこともある。",
+ "この家の古い間取りを知っている。廊下の奥に、以前は使われていた小部屋がある。",
+ "【大家だけ】妻が奥の部屋に戻ってこない。尋ね人も過去の住人について何かを探っているようだ。どうするかはあなたが決める。",
+ "あなたは過去の住人を追い出したことを知っている。今ここで真実を話すか、隠すか、脱出を優先するかは自由だ。"
+ ],
+ "夫":[
+ "妻が古い写真を持っていることに気づいた。妻が何を知っているのか、あなたにはまだ分からない。",
+ "妻の様子が気になる。家の奥へ行くなら、誰と行動するか考えた方がよさそうだ。",
+ "廊下の奥で、妻が誰かの名前を口にしたように聞こえた。聞き間違いかもしれない。",
+ "家の中で妻の姿を見失った。妻がどこにいるのか、今のあなたには分からない。",
+ "玄関へ向かう前に、妻のことが気にかかる。助けに行くかどうかはあなたが決める。"
+ ],
+ "妻":[
+ "あなたは古い写真を持っている。写っている人物に心当たりがあるが、いつ、どこで見たのか思い出せない。",
+ "写真の日付は、彼岸の頃を示している。写真の裏には、かすれた文字が残っている。",
+ "壁の奥にある小部屋について、なぜか見覚えがある気がする。そこに何があるかは分からない。",
+ "奥の部屋で何かを見つけた。すぐに戻るべきか、もう少し調べるべきか迷っている。",
+ "玄関へ向かうか、家に残るか。あなたには、まだ確かめたいことがある。"
+ ],
+ "尋ね人":[
+ "あなたは行方不明になった人物を探している。この家に手掛かりがあると思っている。写真の存在は知らない。",
+ "この家の誰かが、探している人物について何か知っているかもしれない。誰かは分からない。",
+ "古い記録に、探している人物と関係がありそうな名前がある。確信は持てない。",
+ "大家が過去の住人について何かを知っているように思える。だが、本人に確かめたわけではない。",
+ "探している人物の手掛かりは家の中に残っているかもしれない。脱出を優先するか、探し続けるか。"
+ ],
+ "友人A":["あなたは夫婦の知人としてこの家に来た。家の過去については知らない。","誰かが何かを隠しているように感じるが、確かな根拠はない。","壁の奥から物音がした。誰かに知らせるか、自分で確かめるか。","家の中で人影を見た気がする。誰だったかは分からない。","玄関の外へ出る機会は今しかないかもしれない。"],
+ "友人B":["あなたは夫婦の知人としてこの家に来た。家の過去については知らない。","廊下の先から風が吹いている。出口につながっているのかもしれない。","古い紙片を見つけた。そこには読めない文字が書かれている。","誰かが離れの部屋にいる気配がする。","ほかの人の判断を待つか、自分で決めるか。"]
+};
+const choices={
+ 1:{
+ "大家":[["ask","妻に写真について尋ねる"],["talkPast","以前の住人について話す"],["deflect","話題を変える"],["watch","全員の様子を見る"]],
+ "夫":[["askWife","妻に写真のことを尋ねる"],["askOwner","大家にこの家について尋ねる"],["stayWife","妻のそばにいる"],["silent","黙って様子を見る"]],
+ "妻":[["showSeeker","尋ね人に写真を見せる"],["showHusband","夫に写真を見せる"],["showAll","全員に写真を見せる"],["hide","写真を隠す"],["back","写真の裏側を確認する"]],
+ "尋ね人":[["request","妻に写真を見せてほしいと頼む"],["askOwner","大家に以前の住人について尋ねる"],["observe","妻の様子を観察する"],["wait","今は何も言わず様子を見る"]]
+ },
+ 2:{
+ "大家":[["lead","廊下の奥へ案内する"],["stop","奥へ行くのを止める"],["alone","一人で奥を確認する"],["stay","居間に残る"]],
+ "夫":[["withWife","妻と一緒に奥へ向かう"],["withSeeker","尋ね人と一緒に奥へ向かう"],["owner","大家についていく"],["stay","居間に残る"]],
+ "妻":[["withHusband","夫と一緒に奥へ向かう"],["withSeeker","尋ね人と一緒に奥へ向かう"],["alone","一人で奥へ向かう"],["stay","居間に残る"]],
+ "尋ね人":[["withWife","妻と一緒に奥へ向かう"],["withHusband","夫と一緒に奥へ向かう"],["askOwner","大家に案内を求める"],["alone","一人で奥へ向かう"]],
+ "友人A":[["with","誰かについていく"],["alone","一人で廊下を調べる"],["stay","居間に残る"]],
+ "友人B":[["with","誰かについていく"],["alone","一人で廊下を調べる"],["stay","居間に残る"]]
+ },
+ 3:{
+ "大家":[["openRoom","小部屋を開ける"],["conceal","小部屋の存在を隠す"],["search","古い記録を探す"],["avoid","その場を離れる"]],
+ "夫":[["search","小部屋を調べる"],["protect","妻のそばを離れない"],["question","大家に説明を求める"],["report","見つけたことを皆に伝える"]],
+ "妻":[["enter","小部屋に入る"],["read","古い記録を読む"],["call","誰かを呼ぶ"],["conceal","見つけたものを隠す"]],
+ "尋ね人":[["name","記録の名前を確認する"],["search","小部屋を調べる"],["question","大家に問いただす"],["share","手掛かりを皆に伝える"]],
+ "友人A":[["search","小部屋を調べる"],["follow","誰かの後を追う"],["report","見つけたことを伝える"]],
+ "友人B":[["search","古い記録を探す"],["follow","誰かの後を追う"],["stay","その場に残る"]]
+ },
+ 4:{
+ "大家":[["restrain","誰かを拘束する"],["confront","誰かに話をする"],["doNothing","何もしない"],["escape","自分だけ脱出を試みる"]],
+ "夫":[["findWife","妻を探す"],["help","拘束された人を助ける"],["escape","玄関へ向かう"],["search","家の奥を調べる"]],
+ "妻":[["escapeSelf","拘束から自力で脱出する（拘束中）"],["call","誰かに助けを求める（拘束中）"],["search","家の奥を調べる"],["escape","玄関へ向かう"]],
+ "尋ね人":[["questionOwner","大家に真実を尋ねる"],["help","拘束された人を助ける"],["search","過去の住人の手掛かりを探す"],["escape","玄関へ向かう"]],
+ "友人A":[["help","拘束された人を助ける"],["escape","玄関へ向かう"],["search","家の奥を調べる"]],
+ "友人B":[["help","拘束された人を助ける"],["escape","玄関へ向かう"],["search","家の奥を調べる"]]
+ }
+};
+let S=null;
+function startGame(){
+ const n=+$("count").value;let ps=roles.slice(0,n).map((r,i)=>({id:i,role:r,name:r,info:[privateInfo[r][0]],history:[],action:null,target:null,status:"通常",location:"居間",pre:null,vote:null,escapeChoice:null}));
+ S={players:ps,turn:1,phase:"private",idx:0,logs:[],publicFacts:[],choices:{},preDone:false,ending:"",revealed:false};
+ $("setup").classList.add("hidden");$("game").classList.remove("hidden");log("ゲーム開始。全員が古い家の居間にいる。");render();
+}
+function log(x){S.logs.unshift(x);$("log").innerHTML=S.logs.map(v=>"<p>"+esc(v)+"</p>").join("")}
+function esc(x){return String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function p(){return S.players[S.idx]}
+function scene(){return scenes[S.turn-1]}
+function render(){
+ $("turnTag").textContent=S.turn<=4?"第"+S.turn+"ターン":"第5ターン";
+ $("phaseTag").textContent=({private:"個別情報",talk:"対話",select:"個別選択",result:"結果",custody:"拘束対応",prefinal:"一つ前の合議",final:"最終合議",end:"エンディング"}[S.phase]);
+ $("heading").textContent=scene().title;
+ $("instruction").textContent=({private:"プレイヤー本人だけが情報を確認してください。確認したら次の人へ端末を渡します。",talk:"全員の個別情報を確認しました。ここで自由に対話してください。システムは会話内容を判定しません。",select:"対話を踏まえて、各自が自分の行動を一つ選択します。選択理由や会話内容は公開されません。",result:"全員の選択を組み合わせて処理した結果です。",custody:"拘束された人は通常の対話に参加できません。本人用の対応を選択します。",prefinal:"各自が個別に選択します。確定後、選択内容だけ全員に公開されます。",final:"最後の方針を各自が投票します。",end:"ゲーム終了。秘密と個人目的を確認できます。"}[S.phase]);
+ $("story").innerHTML="<div class='story'>"+esc(scene().common)+"</div>";
+ $("playerNav").innerHTML=S.players.map((x,i)=>`<button class="${i===S.idx?'active':'secondary'}" onclick="setPlayer(${i})">${esc(x.name)}</button>`).join("");
+ renderPrivate();renderControls();renderStatus();
+}
+function setPlayer(i){S.idx=i;render()}
+function movePlayer(d){S.idx=(S.idx+d+S.players.length)%S.players.length;render()}
+function renderPrivate(){
+ let x=p(),h=`<div class="card"><b>${esc(x.name)}</b> <span class="tag">${esc(x.status)}</span><small> 現在地：${esc(x.location)}</small></div>`;
+ if(S.phase==="private"){
+  let text=privateInfo[x.role][S.turn-1]||privateInfo[x.role][0];
+  h+=`<div class="private"><span class="tag">あなたにだけ表示</span><p>${esc(text)}</p></div>`;
+  if(S.turn===4&&x.role==="大家")h+="<p class='muted'>この情報は大家だけに提示されています。</p>";
+ } else if(S.phase==="talk"){
+  h+="<div class='notice'>対話時間です。自由に話し合ってください。情報を話す義務はありません。</div>";
+ } else if(S.phase==="select"){
+  h+=renderChoiceForm(x);
+ } else if(S.phase==="result"){
+  h+=`<h3>今回の行動結果</h3><div class="private">${esc(x.history[x.history.length-1]||"特に変化はなかった。")}</div><h3>あなたが得た情報</h3>`;
+  h+=x.info.map(v=>`<div class="card">${esc(v)}</div>`).join("");
+ } else if(S.phase==="custody"){
+  if(x.status==="拘束中"){
+   h+="<div class='private'>あなたは拘束されている。声を出して他のプレイヤーと対話することはできない。</div><label class='choice'><input type='radio' name='escape' value='try' checked>自力で脱出を試みる</label><label class='choice'><input type='radio' name='escape' value='wait'>機会を待つ</label><button onclick='saveEscape()'>確定</button>";
+  }else h+="<p class='muted'>拘束されていません。</p>";
+ } else if(S.phase==="prefinal"){
+  h+=`<label>あなたの選択</label><select id="pre"><option value="exit">家から出る</option><option value="stay">家に残る</option><option value="rescue">誰かを助けてから出る</option><option value="search">行方不明者を探す</option></select><label>助ける相手（該当する場合）</label><select id="preTarget">${S.players.filter(z=>z.id!==x.id).map(z=>`<option value="${z.id}">${esc(z.name)}</option>`).join("")}</select><button onclick='savePre()'>選択を確定</button>`;
+  if(x.pre)h+=`<div class='notice'>確定済み：${esc(preLabel(x.pre.value,x.pre.target))}</div>`;
+ } else if(S.phase==="final"){
+  h+=`<label>最終投票</label><select id="vote"><option value="exit">家から出る</option><option value="stay">家に残る</option><option value="rescue">誰かを助けてから出る</option></select><button onclick='saveVote()'>投票を確定</button>${x.vote?`<div class='notice'>投票済み</div>`:""}`;
+ } else if(S.phase==="end"){
+  h+=`<h3>個人目的（仮）</h3><p>${esc(goal(x.role))}</p><h3>あなたの情報</h3>${x.info.map(v=>`<div class='card'>${esc(v)}</div>`).join("")}`;
+ }
+ $("personal").innerHTML=h;
+}
+function renderChoiceForm(x){
+ if(x.status==="拘束中"&&S.turn!==4)return "<div class='notice'>拘束中のため通常の行動は選べません。</div>";
+ let list=(choices[S.turn]&&choices[S.turn][x.role])||choices[S.turn]?.["友人A"]||[];
+ if(S.turn===4&&x.role==="妻"&&x.status!=="拘束中")list=list.filter(a=>!["escapeSelf","call"].includes(a[0]));
+ if(S.turn===4&&x.status==="拘束中"&&x.role!=="大家")list=list.filter(a=>["escapeSelf","call","help"].includes(a[0]));
+ if(S.turn===4&&x.role==="大家")list=choices[4]["大家"];
+ return `<label>行動を一つ選んでください</label><select id="act">${list.map(a=>`<option value="${a[0]}">${esc(a[1])}</option>`).join("")}</select><label>対象（必要な行動の場合）</label><select id="target"><option value="">対象を選ばない</option>${S.players.filter(z=>z.id!==x.id).map(z=>`<option value="${z.id}">${esc(z.name)}</option>`).join("")}</select><button onclick="saveAction()">この行動を確定</button>`;
+}
+function renderControls(){
+ let h="";
+ if(S.phase==="private")h=`<button onclick="privateNext()">情報を確認した／次へ</button>`;
+ if(S.phase==="talk")h=`<p class="muted">対話時間を取ってください。終了したら次へ進みます。</p><button onclick="beginSelect()">対話を終了して選択へ</button>`;
+ if(S.phase==="select")h=`<p class="muted">全員が個別に選択します。未選択の人がいても他の人の選択は見えません。</p><button onclick="resolve()">全員の選択を処理する</button>`;
+ if(S.phase==="result")h=`<button onclick="nextTurn()">次へ進む</button>`;
+ if(S.phase==="custody")h=`<button onclick="finishCustody()">拘束中の対応を処理する</button>`;
+ if(S.phase==="prefinal")h=`<button onclick="finishPre()">選択を公開して最終合議へ</button>`;
+ if(S.phase==="final")h=`<button onclick="finishFinal()">投票を締め切る</button>`;
+ if(S.phase==="end")h=`<button onclick="reveal()">全員の秘密・個人目的・行動履歴を公開</button>`;
+ $("controls").innerHTML=h;
+}
+function privateNext(){if(S.idx<S.players.length-1){S.idx++;render()}else{S.phase="talk";S.idx=0;log("全員が個別情報を確認した。対話フェーズへ。");render()}}
+function beginSelect(){S.phase="select";S.idx=0;S.players.forEach(x=>{x.action=null;x.target=null});render()}
+function saveAction(){let x=p();x.action=$("act").value;x.target=$("target").value===""?null:+$("target").value;log(x.name+"が個別行動を確定。");let n=S.players.findIndex((z,i)=>i>S.idx&&z.status!=="拘束中");if(n<0)n=S.players.findIndex((z,i)=>i>S.idx);if(n>=0)S.idx=n;render()}
+function addInfo(x,t){if(!x.info.includes(t))x.info.push(t)}
+function actLabel(code){const all=Object.values(choices).flatMap(o=>Object.values(o).flat());return all.find(a=>a[0]===code)?.[1]||code}
+function resolve(){
+ if(S.players.some(x=>x.status!=="拘束中"&&!x.action)){alert("まだ行動を選んでいないプレイヤーがいます。");return}
+ let ps=S.players;
+ // Apply all choices against the same starting snapshot, then resolve their combination.
+ ps.forEach(x=>{if(!x.action)return;let t=ps.find(z=>z.id===x.target),r="選択した行動を実行した。";
+ if(S.turn===1){
+  if(x.action==="showSeeker"&&t){addInfo(t,"妻から古い写真を見せられた。写真の人物に見覚えがある気がする。");r="尋ね人に写真を見せた。";}
+  if(x.action==="showHusband"&&t){addInfo(t,"妻が持っていた古い写真を見た。");r="夫に写真を見せた。";}
+  if(x.action==="showAll")ps.filter(z=>z.id!==x.id).forEach(z=>addInfo(z,"妻が古い写真を全員に見せた。写真には過去の住人らしき人物が写っている。"));
+  if(x.action==="back")addInfo(x,"写真の裏に、彼岸の日付とかすれた名前が記されている。");
+  if(x.action==="ask"||x.action==="askWife"||x.action==="askOwner") {if(t)addInfo(t,x.name+"から写真／家について尋ねられた。");}
+  if(x.action==="talkPast")addInfo(x,"以前の住人について話す機会を作った。");
+  if(x.action==="deflect")r="話題を変えた。";
+  if(x.action==="hide")r="写真を隠した。";
+  if(x.action==="request"&&t)addInfo(t,"尋ね人が写真を見せてほしいと頼んできた。");
+ } else if(S.turn===2){
+  if(["withWife","withSeeker","withHusband","lead","alone","with"].includes(x.action)){x.location="廊下";r="廊下の奥へ向かった。";addInfo(x,"廊下の奥に、使われていない小部屋がある。");}
+  if(x.action==="lead")ps.filter(z=>z.action==="withWife"||z.action==="withSeeker").forEach(z=>addInfo(z,"大家の案内で廊下の奥へ向かった。"));
+  if(x.action==="stop")r="他の人が奥へ行くのを止めようとした。";
+  if(x.action==="askOwner"&&t)addInfo(t,"尋ね人があなたに案内を求めた。");
+  if(x.action==="stay")r="居間に残った。";
+ } else if(S.turn===3){
+  if(["openRoom","search","enter","read","name"].includes(x.action)){addInfo(x,"小部屋で古い記録を見つけた。そこには以前の住人の名前と、家からいなくなった日付が記されている。");r="小部屋の古い記録を調べた。";}
+  if(x.action==="conceal")r="見つけたもの／小部屋の存在を隠した。";
+  if(x.action==="question"||x.action==="questionOwner")ps.filter(z=>z.role==="大家").forEach(z=>addInfo(z,x.name+"から過去の住人について尋ねられた。"));
+  if(x.action==="report"||x.action==="share")ps.filter(z=>z.id!==x.id).forEach(z=>addInfo(z,x.name+"が小部屋で見つけたことを皆に伝えた。"));
+  if(x.action==="protect")r="妻のそばを離れずにいた。";
+ } else if(S.turn===4){
+  if(x.role==="大家"&&x.action==="restrain"&&t){t.status="拘束中";t.location="離れの部屋";addInfo(t,"あなたは大家によって離れの部屋に拘束された。");r=t.name+"を拘束した。";}
+  if(x.action==="escape"||x.action==="escapeSelf"){if(x.status==="拘束中"){x.escapeChoice="try";r="拘束から自力で脱出を試みた。";}else{r="玄関へ向かったが、まだ外へ出られない。";addInfo(x,"玄関を開けると、外の景色が一瞬ゆがんだ。");}}
+  if(x.action==="help"&&t&&t.status==="拘束中"){t.status="通常";t.location=x.location;r=t.name+"の救出に向かった。";}
+  if(x.action==="findWife"&&t){addInfo(x,"妻を探して家の中を移動した。");}
+  if(x.action==="questionOwner")ps.filter(z=>z.role==="大家").forEach(z=>addInfo(z,"尋ね人が過去の住人について真実を尋ねている。"));
+ }
+ x.history.push(r);log(x.name+"： "+r);
+ });
+ if(S.turn===3){let owner=ps.find(x=>x.role==="大家");if(owner)addInfo(owner,"誰かが小部屋の記録を見つけた可能性がある。誰が何を知ったかは、まだ分からない。");}
+ if(S.turn===4){let owner=ps.find(x=>x.role==="大家");if(owner)addInfo(owner,"家の中で誰かが動いている。拘束するか、話すか、何もしないかはあなたの判断だ。");}
+ S.phase=S.turn===4?"custody":"result";S.idx=0;render();
+}
+function saveEscape(){let x=p();x.escapeChoice=document.querySelector('input[name=escape]:checked').value;log(x.name+"は拘束中の対応を選択した。")}
+function finishCustody(){S.players.filter(x=>x.status==="拘束中"&&x.escapeChoice==="try").forEach(x=>{x.status="通常";x.location="廊下";addInfo(x,"あなたは拘束場所から自力で脱出した。");x.history.push("自力で拘束から脱出した。");log(x.name+"が自力で拘束から脱出した。")});S.phase="result";S.idx=0;render()}
+function nextTurn(){if(S.turn<4){S.turn++;S.phase="private";S.idx=0;S.players.forEach(x=>{x.action=null;x.target=null})}else{S.turn=5;S.phase="prefinal";S.idx=0}render()}
+function preLabel(v,t){return ({exit:"家から出る",stay:"家に残る",rescue:"誰かを助けてから出る",search:"行方不明者を探す"}[v]||v)+(v==="rescue"&&t!==undefined?"（"+S.players[t].name+"）":"")}
+function savePre(){let x=p();x.pre={value:$("pre").value,target:+$("preTarget").value};log(x.name+"が一つ前の合議を確定。");let n=S.players.findIndex((z,i)=>i>S.idx&&!z.pre);if(n>=0)S.idx=n;render()}
+function finishPre(){if(S.players.some(x=>!x.pre)){alert("全員の選択が終わっていません。");return}S.phase="final";S.idx=0;log("一つ前の合議の選択が全員に公開された。");render();$("story").innerHTML+="<div class='notice'><b>公開された選択</b><br>"+S.players.map(x=>esc(x.name)+"："+esc(preLabel(x.pre.value,x.pre.target))).join("<br>")+"</div>"}
+function saveVote(){p().vote=$("vote").value;log(p().name+"が最終投票を確定。");let n=S.players.findIndex((z,i)=>i>S.idx&&z.vote===null);if(n>=0)S.idx=n;render()}
+function finishFinal(){
+ if(S.players.some(x=>x.vote===null)){if(!confirm("未投票の人がいます。このまま締め切りますか？"))return}
+ let c={exit:0,stay:0,rescue:0};S.players.forEach(x=>{if(x.vote)c[x.vote]++});
+ let max=Math.max(...Object.values(c)),w=Object.keys(c).filter(k=>c[k]===max);
+ let restrained=S.players.filter(x=>x.status==="拘束中");
+ if(w.length!==1||max===0)S.ending="意見がまとまらないまま、家の異変が進行した。全員の行方は分からなくなった。";
+ else if(w[0]==="exit"&&!restrained.length)S.ending="あなたたちは玄関を抜けた。振り返ると、古い家は夕闇の中に沈んでいた。";
+ else if(w[0]==="stay")S.ending="あなたたちは家に残ることを選んだ。廊下の奥から、誰かがこちらを見ている気配がした。";
+ else S.ending="誰かを助けてから出ることになった。救出できた者と、家に残された者がいる。";
+ S.phase="end";S.idx=0;log("最終投票："+JSON.stringify(c));log("結末："+S.ending);render();
+ $("story").innerHTML+="<div class='story'><b>結末</b><br>"+esc(S.ending)+"</div>";
+}
+function goal(r){return ({大家:"過去の住人に関する記録を守る／自分の判断で脱出する（仮）",夫:"妻の状態を確かめ、必要なら助ける（仮）",妻:"写真と家の過去に関する手掛かりを得る（仮）",尋ね人:"行方不明者につながる情報を見つける（仮）",友人A:"自分の判断で脱出の機会を得る（仮）",友人B:"家の異変の理由を確かめる（仮）"})[r]}
+function reveal(){S.revealed=true;let h="<div class='story'><b>全情報公開</b>";S.players.forEach(x=>{h+=`<p><b>${esc(x.name)}（${esc(x.role)}）</b><br>個人目的：${esc(goal(x.role))}<br>情報：${x.info.map(esc).join("／")}<br>行動：${x.history.map(esc).join(" → ")}</p>`});h+="</div>";$("story").innerHTML+=h;log("全員の情報・個人目的・行動履歴を公開した。")}
+function renderStatus(){$("status").innerHTML=`<p>進行：第${S.turn}ターン</p><p>参加者：${S.players.length}人</p><p>拘束中：${S.players.filter(x=>x.status==="拘束中").map(x=>esc(x.name)).join("、")||"なし"}</p><p>現在地：${S.players.map(x=>esc(x.name)+"："+esc(x.location)).join("<br>")}</p>`}
+</script>
+</body></html>

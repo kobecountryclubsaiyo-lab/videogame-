@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>彼岸の家｜試作v2</title>
+<style>
+:root{color-scheme:dark;--bg:#171916;--panel:#232720;--panel2:#1b1f1a;--line:#454b40;--ink:#eeeade;--muted:#b5b5a9;--gold:#c9b27c;--red:#c07a72;--new:#3a3527}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif}
+header{padding:20px max(16px,calc((100% - 1100px)/2));background:#242820;border-bottom:1px solid var(--line)}
+h1{font-size:1.4rem;margin:0}header p{margin:4px 0 0;color:var(--muted);font-size:.9rem}
+main{max-width:1100px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:17px;margin-bottom:14px}
+h2{font-size:1.1rem;margin:0 0 10px}h3{font-size:.95rem;margin:16px 0 6px;color:#e0d5b8}
+.muted,small{color:var(--muted)}.muted{font-size:.9rem}
+.story{background:#181c17;border-left:3px solid var(--gold);padding:14px;border-radius:5px;white-space:pre-line;margin:12px 0}
+.story.alert{border-left-color:var(--red)}
+.private{background:#292b22;border:1px solid #5d5946;padding:12px;border-radius:8px;margin:8px 0;white-space:pre-line}
+.private.new{background:var(--new);border-color:#8a7a4f}
+.tag{display:inline-block;border:1px solid #74694c;color:#e1d0a5;border-radius:30px;padding:1px 9px;font-size:.75rem;margin-right:5px}
+.tag.red{border-color:#8a4f49;color:#f0b6ae}
+button,select,input{font:inherit}
+button{border:0;border-radius:8px;background:var(--gold);color:#191a16;font-weight:700;padding:11px 16px;cursor:pointer}
+button.secondary{background:#42483e;color:var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+select{width:100%;background:#171b17;color:var(--ink);border:1px solid #596052;border-radius:7px;padding:10px;margin:6px 0 12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.row button{flex:1}
+.choice{display:flex;gap:10px;align-items:flex-start;padding:10px 6px;border-bottom:1px solid #3b4038;cursor:pointer}
+.choice input{margin-top:6px;accent-color:var(--gold)}
+.log{max-height:420px;overflow:auto;font-size:.85rem}.log p{border-bottom:1px solid #393e36;margin:0;padding:7px 0;white-space:pre-line}
+.hidden{display:none}
+.notice{padding:11px;background:#33372d;border-radius:7px;margin:10px 0}
+.curtain{text-align:center;padding:40px 10px}
+.curtain .who{font-size:1.6rem;font-weight:700;color:var(--gold);margin:8px 0 18px}
+details{margin:10px 0}summary{cursor:pointer;color:#e0d5b8}
+.timer{font-size:2rem;font-weight:700;text-align:center;margin:8px 0;font-variant-numeric:tabular-nums}
+.ok{color:#a9d39a}.ng{color:var(--red)}
+table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid #3b4038;padding:6px 4px;text-align:left;vertical-align:top}
+footer{text-align:center;color:#92958a;font-size:.8rem;padding:8px 16px 28px}
+@media(max-width:780px){main{grid-template-columns:1fr;margin:12px auto}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<header><h1>彼岸の家 <span class="tag">ストーリー試作 v2</span></h1><p>共通の状況 → 個別情報 → 対話 → 個別選択 → 結果描写（全5ターン）</p></header>
+<main>
+<section>
+ <div class="panel" id="setup">
+  <h2>ゲーム開始</h2>
+  <p>4〜6人用。1台の端末を順番に受け渡して遊びます。端末を渡すたびに目隠し画面が出るので、本人だけが「表示する」を押してください。</p>
+  <label>参加人数</label>
+  <select id="count"><option value="4">4人（大家・夫・妻・尋ね人）</option><option value="5">5人（＋友人A）</option><option value="6">6人（＋友人A・友人B）</option></select>
+  <div class="notice"><b>大切なルール</b><br>・話すのは自由。嘘も、黙っているのも、隠すのも構いません。<br>・システムは会話の内容を判定しません。<br>・物語に反映されるのは、選択肢で<b>「行動」として示したこと</b>だけです（写真を見せる、日記を読み上げる、など）。</div>
+  <button onclick="startGame()">開始する</button>
+ </div>
+ <div class="panel hidden" id="game">
+  <div><span class="tag" id="turnTag"></span><span class="tag" id="phaseTag"></span></div>
+  <div id="view"></div>
+ </div>
+</section>
+<aside>
+ <div class="panel"><h2>ゲーム状況</h2><div id="status" class="muted">開始前</div></div>
+ <div class="panel"><h2>公開された出来事</h2><div id="pub" class="log muted">まだありません。</div></div>
+ <div class="panel"><h2>この試作について</h2><p class="muted">個別の情報・選択・結果は、システムが持つ「事実」（誰が何を知り、どこにいて、何をしたか）から組み立てています。信頼度や発言の真偽は扱いません。</p><button class="secondary" onclick="if(confirm('最初からやり直しますか？'))location.reload()">最初から</button></div>
+</aside>
+</main>
+<footer>設計確認用の試作品。分岐と文章はテストプレイ後に調整します。</footer>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ROLES=["大家","夫","妻","尋ね人","友人A","友人B"];
+const LOCN={ima:"居間",hall:"廊下の奥",butsuma:"仏間",genkan:"玄関",room:"小部屋",hanare:"離れ"};
+const GOAL={
+ "大家":"篠の件に決着をつける：送りを成功させる。または、追い出した経緯を皆の前で明かされないまま、自分が脱出する。",
+ "夫":"妻と同じ結末を迎える（二人とも脱出する、または二人とも家に残る）。",
+ "妻":"写真の女性が誰なのか、そして自分が何者なのかを知る。",
+ "尋ね人":"叔母・篠の行方を知る。",
+ "友人A":"無事に家から脱出する。",
+ "友人B":"紙片が示す異変の理由（送りの方法）を突き止める。"
+};
+// 事実（知識）の一覧。キー → 本文
+const K={
+ ledger:"賃貸台帳：十五年前の彼岸まで、この家には「篠（しの）」という女性が娘と住んでいた。退去理由の欄は空白のままだ。",
+ photo:"古い写真：着物の女性（左目の下にほくろ）と、幼い女の子が写っている。",
+ photoBack:"写真の裏に「篠と雪　彼岸」と書かれている。",
+ name:"写真の女性は「篠（しの）」だ。",
+ letter:"尋ね人の手紙：差出人は篠。十五年前、この家の住所から出されている。篠は左目の下にほくろのある人だという。",
+ fire:"仏間の燭台に、毎年火を焚いてきた跡がある。灰はなぜか新しい。",
+ paperFrag:"紙片：かすれた文字で「…火を…絶やす…」とだけ読める。",
+ paperFull:"紙片の全文：「彼岸の火を絶やすな。あの子が戻るまで。戻ったら、名を呼んで送っておくれ」",
+ wall:"廊下の奥に、周りより新しく塗られた壁がある。叩くと奥が空洞の音がする。",
+ voice:"玄関の外から、女の声が「ゆき」と呼んだ。",
+ yukiMem:"幼い頃、誰かに「ゆき」と呼ばれていた気がする。それが誰の声だったかは思い出せない。",
+ yukiName:"篠の娘の名は「雪（ゆき）」だ。",
+ kimono:"小部屋の行李に、子どもの着物がしまわれていた。名札に「雪」とある。",
+ diary:"篠の日記：「家を追い出された。雪は連れて行かれた。彼岸の火を絶やせば、帰る道が閉じてしまう。私はこの部屋から出ない。あの子が帰ってくるまで。もし私が火を守れなくなったら、写真を供え、名を呼び、訳を話して送ってほしい」——最後の頁は十五年前の彼岸で途切れている。",
+ fate:"篠は家を出ていなかった。壁の奥の小部屋に籠もったまま、この家の一部になっている。",
+ evict:"十五年前の彼岸、大家は篠を家から追い出した。篠が毎年仏間で火を焚き、「あの家は死人を呼ぶ」と噂になったからだ。娘は親戚に引き取られた。",
+ method:"送りの方法が分かった：仏間で火を灯し、その人の写真を供え、名を呼び、別れの訳を語って送る。",
+ identity:"あなたは篠の娘、雪だ。この家は、あなたが生まれた家だ。"
+};
+const KSHORT={ledger:"賃貸台帳",photo:"写真",photoBack:"写真の裏",name:"写真の女性＝篠",letter:"叔母の手紙",fire:"仏間の火の跡",paperFrag:"紙片（断片）",paperFull:"紙片（全文）",wall:"新しい壁",voice:"呼ぶ声",yukiMem:"「ゆき」の記憶",yukiName:"娘の名＝雪",kimono:"子どもの着物",diary:"篠の日記",fate:"篠の行方",evict:"追い出しの経緯",method:"送りの方法",identity:"妻＝雪"};
+
+let S=null,timerId=null;
+const ps=()=>S.players;
+const byRole=r=>S.players.find(x=>x.role===r);
+const isFree=p=>p&&p.status==="free";
+const has=(p,k)=>!!p&&p.keys.has(k);
+function addK(p,k,txt){if(!p||p.keys.has(k))return false;p.keys.add(k);p.fresh.push({kind:"info",t:txt||K[k]});return true}
+function note(p,t,kind="result"){if(p)p.fresh.push({kind,t})}
+function names(list){return list.map(x=>x.role).join("と")}
+function derive(){
+ let ch=true;
+ while(ch){ch=false;
+  for(const p of S.players){
+   const a=(k,c)=>{if(c&&!has(p,k)){addK(p,k);ch=true}};
+   a("name",has(p,"photo")&&(has(p,"letter")||has(p,"photoBack")));
+   a("yukiName",has(p,"photoBack")||has(p,"kimono")||has(p,"diary"));
+   a("fate",has(p,"diary"));
+   a("method",has(p,"diary")||has(p,"paperFull")||(has(p,"fire")&&has(p,"paperFrag")));
+   a("identity",p.role==="妻"&&has(p,"yukiMem")&&has(p,"yukiName"));
+  }
+ }
+}
+
+/* ---------------- 開始 ---------------- */
+function startGame(){
+ const n=+$("count").value;
+ S={n,turn:1,phase:"intro",queue:[],qi:0,open:false,narr:"",mid:"",pub:[],
+  players:ROLES.slice(0,n).map((r,i)=>({id:i,role:r,keys:new Set(),notes:[],fresh:[],history:[],choice:null,pre:null,vote:null,status:"free",loc:"ima",outcome:null})),
+  f:{wallOpen:false,diaryHolder:null,diaryBurned:false,photoHolder:null,truthPublic:false,prepared:false,preparers:[],offered:false,offerer:null,called:false,wifeAnswer:false,husbandHold:false,doorHolders:[],policy:null,success:false,ending:"",counts:null}};
+ S.f.photoHolder=byRole("妻").id;
+ const o=byRole("大家");
+ addK(o,"evict","十五年前の彼岸、あなたはこの家から篠という女性を追い出した。篠が毎年仏間で火を焚き、「あの家は死人を呼ぶ」と噂になったからだ。娘は親戚に引き取られた。家を守るためだったと、今も思っている。この話は誰にもしていない。");
+ addK(o,"fire","篠は毎年、彼岸になると仏間で火を焚いていた。何のための火なのか、あなたは知らない。");
+ addK(o,"ledger","鞄に古い賃貸台帳が入っている。篠の名前と、十五年前の退去日が載っている。");
+ addK(byRole("妻"),"photo","仏間の引き出しで古い写真を見つけた。着物の女性（左目の下にほくろ）と、幼い女の子が写っている。女性に見覚えがあるが、いつどこで見たのか思い出せない。");
+ addK(byRole("尋ね人"),"letter","あなたは叔母の篠を探している。十五年前、この家の住所から届いた手紙を最後に消息が絶えた。叔母は左目の下にほくろのある人だ。その手紙を今も持っている。");
+ if(byRole("友人B"))addK(byRole("友人B"),"paperFrag","玄関で古い紙片を拾った。かすれた文字で「…火を…絶やす…」とだけ読める。");
+ S.players.forEach(p=>{p.fresh.forEach(x=>x.kind="info")});
+ $("setup").classList.add("hidden");$("game").classList.remove("hidden");
+ render();
+}
+
+/* ---------------- 共通の状況 ---------------- */
+function commonText(){
+ const T=S.turn,friends=S.n>=5?"、その友人":"";
+ if(T===1)return `彼岸の夕暮れ。貸家の内見に来た夫婦${friends}。案内役の大家。そして同じ日に「人を探している」と訪ねてきた尋ね人。\n帰ろうとして玄関を出たはずが、気づけば全員、また同じ居間に立っていた。\n妻は、仏間で見つけたという一枚の古い写真を手にしている。その写真について、まだ誰も何も話していない。`;
+ if(T===2)return "玄関は、何度開けても同じ廊下につながっている。窓の外の夕焼けは、少しも沈まない。\n家の奥から、ゆっくりと畳を踏む音が聞こえた。\nどこを調べるか。誰かと一緒に動くのか、一人で確かめるのか。";
+ if(T===3)return (S.f.wallFoundByAll?"家鳴りとともに、廊下の奥の壁が内側から叩かれた。周りより新しく塗られた壁がある。全員がそれに気づいた。\n":"廊下の奥の、新しく塗られた壁。")+"その向こうから、かすかに子守唄が聞こえる。\n壁を開けるには人手がいる。大家なら、板の外し方を知っているかもしれない。";
+ if(T===4)return "日は暮れきらないまま、家鳴りが続いている。\nこの家の過去を知る大家は、ある決断を迫られている。\nまず大家だけが決断する。そのあと、それぞれの状況が届く。";
+ return "家鳴りが激しくなり、壁に細い亀裂が走る。\n玄関の向こうに、初めて本物の外の景色が見えた。だが、長くはもたないだろう。\n家は、誰かを引き留めようとしている。\nまず一人ずつ最後の行動を決めて公開し、そのあと全員で方針を決める。";
+}
+const TITLE=["彼岸の夕暮れ","閉ざされた家","壁の向こう","大家の判断","玄関の前"];
+
+/* ---------------- 個別情報（ターンごと） ---------------- */
+function baseInfo(p){
+ const T=S.turn,r=p.role,I=t=>note(p,t,"info"),w=byRole("妻");
+ if(T===1){
+  if(r==="夫")I("妻は幼い頃、親戚の家に養女に出された。実の親のことは覚えていないと、妻は言う。\n妻が仏間から戻ってきたとき、写真を手に顔色を変えていた。");
+  if(r==="尋ね人")I("叔母には娘がいたが、十五年前に親戚へ引き取られたと聞いている。娘の名前は知らない。");
+  if(r==="友人A")I("あなたには時々、他の人には見えないものが見える。さっき、仏間の暗がりに誰かが正座していた。");
+  if(r==="友人B")I("あなたは夫婦の内見に付き添って来た。この家の過去については何も知らない。");
+  if(r==="大家")I("玄関から出られないこの現象は、あなたにも予想外だ。");
+ }
+ if(T===2){
+  if(r==="大家")I("廊下の奥の新しい壁は、十五年前にあなたが左官に塗らせたものだ。奥には篠が使っていた小部屋がある。中を確かめたことはない。");
+  if(r==="夫")I("妻が何度も玄関の方を振り返る。誰かに呼ばれているかのようだ。");
+  if(r==="妻")addK(p,"yukiMem");
+  if(r==="尋ね人")I("手紙の最後には、こう書かれていた。「あの子の着物は、奥の部屋にしまってある」");
+  if(r==="友人A")I("家の空気が冷えるたび、着物の女の後ろ姿が見える。あなたにしか見えていないようだ。");
+  if(r==="友人B")I(has(p,"paperFull")?"紙片の「あの子」とは誰なのだろう。":"紙片の続きが、読めそうで読めない。");
+ }
+ if(T===3){
+  if(r==="大家")I("篠はよく「この家を離れたら、あの子の帰る場所がなくなる」と言っていた。意味は分からなかった。");
+  if(r==="夫")I("妻の養子縁組の書類で、昔の名前の欄が塗りつぶされていたのを見たことがある。");
+  if(r==="妻")I("壁の向こうに、子どもの頃に隠れて遊んだ部屋がある気がする。");
+  if(r==="尋ね人")I("母から聞いた話：叔母は「火を絶やしたら、あの世とこの世の境が開く」と言っていたそうだ。");
+  if(r==="友人A")I("壁の向こうから子守唄が聞こえる。他の誰も気づいていないようだ。");
+  if(r==="友人B")I("紙片の裏の隅に、小さく「雪」と書かれているのに気づいた。");
+ }
+ if(T===4||T===5){
+  if(!isFree(p)){I("あなたは離れに閉じ込められている。この対話のあいだ、声を出してはいけない（筆談・身ぶりも不可）。");return}
+ }
+ if(T===4){
+  const bound=S.players.filter(x=>!isFree(x));
+  if(r==="大家")I("家鳴りが強くなっていく。十五年前の、あの彼岸の夜と同じだ。");
+  if(r==="夫")I(isFree(w)?"妻の手がひどく冷たい。玄関の方ばかり見ている。":"妻の姿が見えない。");
+  if(r==="妻"){addK(p,"voice","玄関の外から、また「ゆき」と呼ぶ声がする。");if(has(p,"identity"))I("それが母の声だと、今のあなたには分かる。母は、あなたにここに残ってほしいのだ。")}
+  if(r==="尋ね人")I(has(p,"fate")?"叔母はこの家から一度も出ていない。その確信がある。":"叔母の手掛かりは、まだこの家のどこかにある。");
+  if(r==="友人A")I(bound.length?"離れの方に、誰かの気配がある。":"仏間に、着物の女が座ってこちらを見ている。");
+  if(r==="友人B")I(has(p,"method")?"紙片の意味が分かってきた。":"紙片が、ほのかに温かい。");
+ }
+ if(T===5){
+  if(r==="大家")I("玄関の向こうに、本物の外が見える。家は誰かを引き留めようとしている。");
+  if(r==="夫")I("どんな結末になっても、妻と離ればなれにはなりたくない。");
+  if(r==="妻")I(has(p,"identity")?"母は、あなたにここに残ってほしいと願っている。応えるかどうかは、あなたが決める。":"家は、なぜかあなたを呼んでいる。");
+  if(r==="尋ね人")I(has(p,"fate")?"叔母を、ここから送ってやれるかもしれない。":"叔母の行方は、まだ分からない。");
+  if(r==="友人A")I("玄関の外の景色は、長くはもたない。それに……仏間で、女が誰かを待っている。");
+  if(r==="友人B")I(has(p,"method")?"火を灯し、写真を供え、名を呼び、訳を語る。紙片の意味が分かった。":"紙片の意味は、まだ分からない。");
+  if(has(p,"method"))I("送りに必要なもの：火の支度、写真を供えること、名を呼ぶこと、別れの訳が皆の前で語られていること。");
+ }
+}
+
+/* ---------------- 選択肢 ---------------- */
+function getChoices(p){
+ const T=S.turn,r=p.role,f=S.f,C=[],others=S.players.filter(x=>x.id!==p.id);
+ const add=(id,label,t)=>C.push({id,label,t:t==null?null:t});
+ const per=(id,fmt,list)=>list.forEach(x=>add(id,fmt(x.role),x.id));
+ const holder=f.photoHolder===p.id;
+ if(S.phase==="owner"){
+  per("restrain",n=>n+"を離れに閉じ込める",others.filter(isFree));
+  if(!f.truthPublic)add("confess","皆の前で、篠を追い出した経緯を明かす");
+  if(f.diaryHolder===p.id&&!f.diaryBurned)add("burn","持ち出した日記を燃やす");
+  add("door","一人で玄関を試す");
+  add("nothing","何もしない");
+  return C;
+ }
+ if(S.phase==="pre"){
+  if(!isFree(p)){add("wait","助けが来るのを待つ");add("shout","声を上げて居場所を知らせる");return C}
+  add("rescue","離れへ救出に向かう");
+  if(has(p,"method"))add("prep","仏間で送りの支度をする");
+  if(holder)add("offer","写真を仏間に供える");
+  if(["name","ledger","letter","diary","photoBack"].some(k=>has(p,k)))add("call","仏間で「篠」の名を呼ぶ");
+  if(f.diaryHolder===p.id&&!f.diaryBurned)add("share_diary","篠の日記を皆の前で読み上げる");
+  if(r==="大家"&&!f.truthPublic)add("confess","皆の前で、篠を追い出した経緯を明かす");
+  if(r==="妻"&&has(p,"identity"))add("answer","母の声に応える（この家に残る）");
+  if(r==="夫"&&isFree(byRole("妻")))add("hold","妻の手を離さない");
+  add("door","玄関の戸を押さえておく");
+  add("nothing","何もしない");
+  return C;
+ }
+ if(T===1){
+  if(r==="大家"){add("ledger_all","古い賃貸台帳を皆に見せる");add("butsuma","仏間を確かめに行く");add("door","玄関をもう一度試す");add("watch","皆の様子を見る")}
+  if(r==="夫"){add("ask_photo","妻に写真を見せてほしいと頼む");add("ask_owner","大家に、この家の前の住人のことを尋ねる");add("near","妻のそばを離れない");add("watch","皆の様子を見る")}
+  if(r==="妻"){per("show",n=>n+"に写真を見せる",others);add("show_all","写真を皆に見せる");add("back","写真の裏を確かめる");add("hide","写真をしまっておく")}
+  if(r==="尋ね人"){add("ask_photo","妻に写真を見せてほしいと頼む");add("ask_owner","大家に「篠」という人を知らないか尋ねる");add("letter_all","叔母の手紙を皆に見せる");add("watch","皆の様子を見る")}
+  if(r==="友人A"){add("butsuma","仏間の暗がりを確かめる");add("door","玄関を調べる");add("watch","皆の様子を見る")}
+  if(r==="友人B"){add("readpaper","紙片をよく読み解く");per("showpaper",n=>n+"に紙片を見せる",others);add("watch","皆の様子を見る")}
+ }
+ if(T===2){
+  add("go_hall","廊下の奥へ行く");add("go_butsuma","仏間へ行く");add("go_genkan","玄関へ行く");add("stay","居間に残る");
+  if(r==="大家")add("block","廊下の入り口に立ち、誰も奥へ行かせない");
+ }
+ if(T===3){
+  if(r==="大家"){add("open","板を外して、皆に小部屋を見せる");add("block","壁の前に立ちふさがる");add("take","皆より先に、中の物を一人で持ち出す");add("watch","何もせず見守る")}
+  else{add("open_read","壁を開け、中の書き物を探す");add("open_kimono","壁を開け、中の行李を調べる");add("butsuma","仏間を調べる");add("ask_owner","大家に、壁のことを問いただす");
+   if(r==="友人B"){if(!has(p,"paperFull"))add("readpaper","紙片をよく読み解く");per("showpaper",n=>n+"に紙片を見せる",others)}}
+  if(holder)per("give_photo",n=>"写真を"+n+"に預ける",others);
+ }
+ if(T===4){
+  if(!isFree(p)){add("esc","今すぐ自力で抜け出す");add("wait","助けが来るのを待つ");add("noise","戸を叩いて音を立てる");return C}
+  add("hanare","離れを見に行く");
+  if(has(p,"method"))add("prep","仏間で送りの支度をする");
+  if(f.wallOpen&&f.diaryHolder==null&&!f.diaryBurned)add("room_read","小部屋の書き物を探して読む");
+  if(f.wallOpen&&!has(p,"kimono"))add("room_kimono","小部屋の行李を調べる");
+  if(f.diaryHolder===p.id&&!f.diaryBurned)add("share_diary","篠の日記を皆の前で読み上げる");
+  if(r==="友人B")add("showpaper_all","紙片を皆に見せる");
+  if(holder)per("give_photo",n=>"写真を"+n+"に預ける",others.filter(isFree));
+  if(r==="尋ね人")add("search","家の奥で叔母の痕跡を探す");
+  if(r==="夫"&&isFree(byRole("妻")))add("near","妻のそばを離れない");
+  if(r!=="大家")add("press","大家に詰め寄る");
+  add("door","玄関へ向かう");
+  add("watch","様子を見る");
+ }
+ return C;
+}
+
+/* ---------------- 処理：第1ターン ---------------- */
+function watchText(p){return "皆の動きを見ていた。\n"+S.players.filter(x=>x!==p).map(x=>"・"+x.role+"："+(x.choice?x.choice.label:"―")).join("\n")}
+function resolve1(){
+ const P=S.players,pub=[],o=byRole("大家"),w=byRole("妻");
+ for(const p of P){const c=p.choice,t=c.t!=null?P[c.t]:null;
+  switch(c.id){
+   case"show":addK(t,"photo");note(t,"妻から古い写真を見せられた。");note(p,t.role+"に写真を見せた。");break;
+   case"show_all":P.forEach(x=>x!==p&&addK(x,"photo"));pub.push("妻が古い写真を皆に見せた。");note(p,"写真を皆に見せた。");break;
+   case"back":addK(p,"photoBack");break;
+   case"hide":note(p,"写真をしまっておいた。");break;
+   case"ask_photo":note(w,p.role+"から、写真を見せてほしいと頼まれた。");note(p,"妻に写真を見せてほしいと頼んだ。"+(w.choice.id==="hide"?"妻は写真をしまい、見せなかった。":""));break;
+   case"ask_owner":note(o,p.role==="尋ね人"?"尋ね人が「篠」という名を口にし、知らないかと尋ねてきた。":p.role+"に、この家の前の住人のことを尋ねられた。");note(p,"大家に尋ねた。大家がどう答えるかは、次の対話で。");break;
+   case"near":addK(p,"photo");note(p,"妻のそばにいたので、写真がちらりと見えた。");break;
+   case"ledger_all":P.forEach(x=>x!==p&&addK(x,"ledger"));pub.push("大家が古い賃貸台帳を皆に見せた。");note(p,"台帳を皆に見せた。");break;
+   case"letter_all":P.forEach(x=>x!==p&&addK(x,"letter"));pub.push("尋ね人が、叔母からの手紙を皆に見せた。");note(p,"手紙を皆に見せた。");break;
+   case"butsuma":addK(p,"fire");note(p,p.role==="大家"?"仏壇の写真立てが一つ、空になっている。":"暗がりに誰かが正座していた気がしたが、近づくと誰もいなかった。");break;
+   case"door":note(p,"戸を開けると、また同じ廊下。土間に彼岸花が一輪落ちていた。");break;
+   case"readpaper":addK(p,"paperFull");break;
+   case"showpaper":addK(t,"paperFrag");note(t,"友人Bから古い紙片を見せられた。");note(p,t.role+"に紙片を見せた。");break;
+   case"watch":note(p,watchText(p));break;
+  }
+ }
+ return pub;
+}
+/* ---------------- 処理：第2ターン ---------------- */
+function resolve2(){
+ const P=S.players,pub=[],o=byRole("大家");
+ const goers=P.filter(p=>p.choice.id==="go_hall"&&p!==o);
+ P.forEach(p=>p.loc={go_hall:"hall",go_butsuma:"butsuma",go_genkan:"genkan",stay:"ima",block:"ima"}[p.choice.id]);
+ if(o.choice.id==="block"){
+  if(goers.length===1){const g=goers[0];g.loc="ima";note(g,"廊下の入り口で大家に止められ、奥へは行けなかった。");note(o,g.role+"が奥へ行こうとしたので止めた。");pub.push("大家が廊下の入り口で"+g.role+"を止めた。")}
+  else if(goers.length>1){note(o,"止めようとしたが、"+names(goers)+"は構わず奥へ進んだ。");goers.forEach(g=>note(g,"大家が止めようとしたが、構わず奥へ進んだ。"))}
+ }
+ for(const loc of ["hall","butsuma","genkan"]){
+  const g=P.filter(p=>p.loc===loc);
+  g.forEach(p=>{
+   const others=g.filter(x=>x!==p);
+   note(p,others.length?LOCN[loc]+"へ一緒に来たのは："+names(others)+"。":"一人で"+LOCN[loc]+"へ来た。一人になった途端、背後に誰かが立った気がした。");
+   if(loc==="hall"){addK(p,"wall");if(p===o)note(p,"自分が塗らせた壁の前に立った。")}
+   if(loc==="butsuma"){addK(p,"fire");note(p,p.role==="妻"?"仏壇の空の写真立てに、あなたの写真がぴったり収まりそうだ。":"仏壇の写真立てが一つ、空になっている。")}
+   if(loc==="genkan"){addK(p,"voice");if(p.role==="妻")note(p,"その声を聞いた瞬間、胸の奥がざわついた。")}
+  });
+ }
+ const stayers=P.filter(p=>p.loc==="ima");
+ stayers.forEach(p=>note(p,"居間から見ていた。"+(P.filter(x=>x.loc!=="ima").map(x=>x.role+"は"+LOCN[x.loc]+"へ").join("、")||"誰も居間を出なかった")+"。"));
+ const fa=byRole("友人A");if(fa)note(fa,"着物の女の後ろ姿が、廊下の奥の壁へ吸い込まれていくのが見えた。");
+ const by={};P.forEach(p=>(by[p.loc]=by[p.loc]||[]).push(p.role));
+ pub.push(Object.keys(by).map(l=>LOCN[l]+"："+by[l].join("・")).join("／"));
+ return pub;
+}
+/* ---------------- 処理：第3ターン ---------------- */
+function resolve3(){
+ const P=S.players,pub=[],o=byRole("大家"),f=S.f,oc=o.choice.id;
+ const openers=P.filter(p=>["open_read","open_kimono"].includes(p.choice.id));
+ const opened=oc==="open"||oc==="take"||(oc==="block"?openers.length>=3:openers.length>=2);
+ if(opened){
+  f.wallOpen=true;P.forEach(p=>addK(p,"wall"));
+  if(oc==="take"){f.diaryHolder=o.id;addK(o,"diary");note(o,"皆より先に小部屋へ入り、机の上の日記を持ち出した。");o.loc="room"}
+  if(oc==="open"){o.loc="room";note(o,"板を外し、皆に小部屋を見せた。")}
+  openers.forEach(p=>{p.loc="room";
+   if(p.choice.id==="open_kimono")addK(p,"kimono");
+   else if(oc==="take")note(p,"小部屋の机に、何かを持ち去ったばかりの跡がある。埃の上に、帳面の形が残っている。");
+   else{addK(p,"diary");if(f.diaryHolder==null){f.diaryHolder=p.id;note(p,"日記はあなたが手元に持っている。")}}
+  });
+  const inside=P.filter(p=>p.loc==="room");
+  pub.push("廊下の奥の壁が開いた。中には、閉ざされていた小部屋があった。"+(inside.length?"中に入ったのは："+names(inside)+"。":""));
+ }else{
+  openers.forEach(p=>note(p,oc==="block"?"大家が壁の前に立ちふさがり、開けられなかった。":"一人の力では、壁はびくともしなかった。"));
+  if(openers.length)note(o,"壁を開けようとしたのは："+names(openers)+"。");
+  pub.push("壁はまだ閉ざされたままだ。");
+ }
+ for(const p of P){const c=p.choice,t=c.t!=null?P[c.t]:null;
+  switch(c.id){
+   case"butsuma":addK(p,"fire");break;
+   case"ask_owner":note(o,p.role+"に、壁のことを問いただされた。");note(p,"大家に壁のことを問いただした。答えは対話の中で。");break;
+   case"give_photo":f.photoHolder=t.id;addK(t,"photo");note(t,"妻から写真を預かった。");note(p,"写真を"+t.role+"に預けた。");break;
+   case"readpaper":addK(p,"paperFull");break;
+   case"showpaper":addK(t,"paperFrag");note(t,"友人Bから古い紙片を見せられた。");break;
+   case"watch":note(p,watchText(p));break;
+  }
+ }
+ return pub;
+}
+/* ---------------- 処理：第4ターン（大家の判断） ---------------- */
+function resolveOwner(){
+ const P=S.players,o=byRole("大家"),c=o.choice,f=S.f,pub=[];
+ if(c.id==="restrain"){const t=P[c.t];t.status="bound";t.loc="hanare";note(t,"大家に腕をつかまれ、離れへ連れて行かれた。戸に閂がかけられた。");note(o,t.role+"を離れに閉じ込めた。");pub.push(t.role+"の姿が見えない。")}
+ if(c.id==="confess"){f.truthPublic=true;P.forEach(x=>x!==o&&addK(x,"evict"));pub.push("大家が、十五年前に篠を追い出した経緯を皆の前で明かした。")}
+ if(c.id==="burn"){f.diaryBurned=true;f.diaryHolder=null;note(o,"日記を燃やした。");pub.push("どこかで、紙の焼ける匂いがした。")}
+ if(c.id==="door"){addK(o,"voice");note(o,"玄関を試したが、戸の外はまた廊下だった。")}
+ o.history.push("第4ターン（大家の判断）："+c.label);
+ S.mid=pub.join("\n");
+ if(S.mid)S.pub.push("第4ターン（大家の判断のあと）\n"+S.mid);
+}
+/* ---------------- 処理：第4ターン ---------------- */
+function resolve4(){
+ const P=S.players,pub=[],o=byRole("大家"),f=S.f;
+ for(const p of P){const c=p.choice,t=c.t!=null?P[c.t]:null;
+  switch(c.id){
+   case"share_diary":if(f.diaryHolder===p.id&&!f.diaryBurned){f.truthPublic=true;P.forEach(x=>addK(x,"diary"));pub.push(p.role+"が、篠の日記を皆の前で読み上げた。")}break;
+   case"showpaper_all":{const k=has(p,"paperFull")?"paperFull":"paperFrag";P.forEach(x=>addK(x,k));pub.push("友人Bが紙片を皆に見せた。");break}
+   case"give_photo":f.photoHolder=t.id;addK(t,"photo");note(t,p.role+"から写真を預かった。");note(p,"写真を"+t.role+"に預けた。");break;
+   case"room_read":if(f.diaryHolder==null&&!f.diaryBurned){addK(p,"diary");f.diaryHolder=p.id;note(p,"小部屋で篠の日記を見つけた。日記はあなたが手元に持っている。")}else note(p,"小部屋に書き物は残っていなかった。");p.loc="room";break;
+   case"room_kimono":addK(p,"kimono");p.loc="room";break;
+   case"prep":f.prepared=true;if(!f.preparers.includes(p.id))f.preparers.push(p.id);p.loc="butsuma";note(p,"仏間に燭台と火種を整えた。");pub.push("仏間に、火の支度がされた。");break;
+   case"search":if(f.wallOpen){addK(p,"fate");note(p,"小部屋の奥で、篠の櫛と、燃え尽きた蝋燭の山を見つけた。")}else note(p,"壁の向こうから、すすり泣きが聞こえた。");break;
+   case"near":note(p,"妻のそばを離れずにいた。");note(byRole("妻"),"夫がずっとそばにいた。");break;
+   case"door":addK(p,"voice");note(p,"玄関へ向かったが、戸の外はまた廊下だった。");p.loc="genkan";break;
+   case"press":note(o,p.role+"に詰め寄られた。");note(p,"大家に詰め寄った。答えは対話の中で。");break;
+   case"watch":note(p,watchText(p));break;
+  }
+ }
+ // 拘束と救出の組み合わせ
+ const rescuers=P.filter(p=>isFree(p)&&p.choice.id==="hanare"),bound=P.filter(p=>!isFree(p));
+ rescuers.forEach(r=>r.loc="hanare");
+ bound.forEach(b=>{const bc=b.choice.id;
+  if(bc==="esc"){
+   b.status="free";b.loc="hall";note(b,"閂の隙間をこじ開け、自力で離れを抜け出した。");
+   if(rescuers.length){rescuers.forEach(r=>{r.status="bound";note(r,"離れに入ったが、中は空だった。その瞬間、背後で戸が閉まり、開かなくなった。")});note(b,"廊下へ出たとき、誰かが離れへ入っていく足音を聞いた。");pub.push("すれ違いが起きた。"+b.role+"が戻ってきたが、今度は"+names(rescuers)+"の姿が見えない。")}
+   else pub.push(b.role+"が戻ってきた。");
+  }else if(rescuers.length){
+   b.status="free";note(b,names(rescuers)+"が閂を外してくれた。");rescuers.forEach(r=>note(r,"離れで"+b.role+"を見つけ、閂を外した。"));pub.push(names(rescuers)+"が、"+b.role+"を離れから連れ戻した。");
+  }else note(b,"誰も来なかった。");
+  if(bc==="noise"){P.filter(x=>x!==b&&isFree(x)).forEach(x=>note(x,"離れの方から、戸を叩く音が聞こえた。"));pub.push("離れの方から、戸を叩く音が響いた。")}
+ });
+ if(!bound.length)rescuers.forEach(r=>note(r,"離れには誰もいなかった。"));
+ return pub;
+}
+/* ---------------- 処理：第5ターン前半 ---------------- */
+function resolvePre(){
+ const P=S.players,pub=[],f=S.f;
+ P.forEach(p=>p.pre=p.choice);
+ const rescuers=P.filter(p=>isFree(p)&&p.pre.id==="rescue"),bound=P.filter(p=>!isFree(p));
+ bound.forEach(b=>{if(b.pre.id==="shout")pub.push("離れから、"+b.role+"の声がした。")});
+ if(rescuers.length&&bound.length){bound.forEach(b=>{b.status="free";note(b,names(rescuers)+"が助けに来てくれた。")});rescuers.forEach(r=>note(r,"離れで"+names(bound)+"を助け出した。"));pub.push(names(rescuers)+"が、"+names(bound)+"を離れから助け出した。")}
+ else rescuers.forEach(r=>note(r,"離れには誰もいなかった。"));
+ for(const p of P){switch(p.pre.id){
+  case"prep":f.prepared=true;if(!f.preparers.includes(p.id))f.preparers.push(p.id);break;
+  case"offer":f.offered=true;f.offerer=p.id;break;
+  case"call":f.called=true;break;
+  case"share_diary":if(f.diaryHolder===p.id&&!f.diaryBurned){f.truthPublic=true;P.forEach(x=>addK(x,"diary"))}break;
+  case"confess":f.truthPublic=true;P.forEach(x=>x!==p&&addK(x,"evict"));break;
+  case"answer":f.wifeAnswer=true;break;
+  case"hold":f.husbandHold=true;break;
+  case"door":f.doorHolders.push(p.id);break;
+ }p.history.push("第5ターン前半："+p.pre.label)}
+ derive();
+ S.mid="【公開された選択】\n"+P.map(p=>"・"+p.role+"："+p.pre.label).join("\n")+(pub.length?"\n\n"+pub.join("\n"):"");
+ S.pub.push("第5ターン前半\n"+S.mid);
+}
+/* ---------------- エンディング ---------------- */
+function resolveEnding(){
+ const P=S.players,f=S.f,c={okuri:0,exit:0,stay:0};
+ P.forEach(p=>{if(p.vote)c[p.vote]++});
+ const max=Math.max(...Object.values(c)),win=Object.keys(c).filter(k=>c[k]===max);
+ f.counts=c;f.policy=(max>0&&win.length===1)?win[0]:"split";
+ const participants=[f.offerer,...f.preparers].filter(x=>x!=null).map(i=>P[i]);
+ const nameOK=f.called||participants.some(p=>has(p,"name"));
+ f.success=f.policy==="okuri"&&f.offered&&f.prepared&&nameOK&&f.truthPublic;
+ const w=byRole("妻"),h=byRole("夫");let txt="";
+ if(f.success){
+  txt="仏間に火が灯る。供えられた写真の前で「篠」と名が呼ばれ、十五年前に何があったのかが語られた。\n廊下の奥から足音が近づき、火の前で止まる。着物の女は写真を見下ろし、それから妻の方を振り返った。\n——帰りなさい、雪。";
+  if(f.wifeAnswer)txt+="\n母の声に応えようとした妻の手を、篠はそっと押し返した。";
+  txt+="\n家鳴りが止んだ。離れの閂も、いつの間にか外れている。玄関の向こうには、本物の夜風が吹いていた。";
+  P.forEach(p=>p.outcome="escape");
+ }else if(f.policy==="stay"){
+  txt="あなたたちは家に残ることを選んだ。仏間に、誰かが座る気配がする。\n彼岸が明けるまで、この家は誰も帰さないだろう。";
+  P.forEach(p=>p.outcome=isFree(p)?"stay":"left");
+ }else if(f.policy==="split"){
+  txt="方針は割れたまま、時間だけが過ぎた。家鳴りが一つに重なり、廊下が際限なく伸びていく。\n気がつくと、互いの姿が見えなくなっていた。";
+  if(f.doorHolders.length)txt+="\n玄関の戸を押さえていた者だけが、かろうじて外へ転がり出た。";
+  P.forEach(p=>p.outcome=(isFree(p)&&f.doorHolders.includes(p.id)&&p!==w)?"escape":"lost");
+ }else{
+  if(f.policy==="okuri"){
+   const miss=[];
+   if(!f.prepared)miss.push("誰も送りの支度をしていなかった。");
+   if(!f.offered)miss.push("写真が供えられなかった。篠は、自分の姿を見つけられなかった。");
+   if(!nameOK)miss.push("誰も、その名を呼ばなかった。");
+   if(!f.truthPublic)miss.push("なぜ引き離されたのか、誰も語らなかった。");
+   txt="あなたたちは仏間に集まった。だが、送りは成らなかった。\n"+miss.join("\n")+"\nやがて火は消え、あなたたちは玄関へ走った。";
+  }else txt="あなたたちは玄関へ走った。戸の外には本物の夕闇がある。";
+  txt+="\nだが妻が敷居をまたごうとした瞬間、戸の向こうは再び廊下になった。家は、妻を離さなかった。";
+  P.forEach(p=>{
+   if(!isFree(p))p.outcome="left";
+   else if(p===w)p.outcome="stay";
+   else if(p===h&&f.husbandHold)p.outcome="stay";
+   else p.outcome="escape";
+  });
+  if(f.husbandHold&&isFree(w))txt+="\n夫は妻の手を離さず、ともに家に残った。";
+  const left=P.filter(p=>p.outcome==="left");if(left.length)txt+="\n離れに閉じ込められていた"+names(left)+"は、取り残された。";
+ }
+ f.ending=txt;
+ S.pub.push("結末\n"+txt);
+}
+const OUT={escape:"脱出した",stay:"家に残った",left:"離れに取り残された",lost:"異変に飲み込まれた"};
+function goalMet(p){
+ const f=S.f,w=byRole("妻"),esc_=x=>x.outcome==="escape";
+ switch(p.role){
+  case"大家":return f.success||(esc_(p)&&!f.truthPublic);
+  case"夫":return esc_(p)===esc_(w)&&p.outcome!=="lost"&&w.outcome!=="lost";
+  case"妻":return has(p,"identity");
+  case"尋ね人":return has(p,"fate")||f.success;
+  case"友人A":return esc_(p);
+  case"友人B":return has(p,"method");
+ }
+}
+
+/* ---------------- 進行 ---------------- */
+function startTurn(){
+ S.phase="intro";S.mid="";
+ if(S.turn===3&&!S.players.some(p=>has(p,"wall"))){S.f.wallFoundByAll=true;S.players.forEach(p=>addK(p,"wall"))}else S.f.wallFoundByAll=false;
+ render();
+}
+function beginPrivate(){S.players.forEach(baseInfo);setQueue("private",S.players.map(p=>p.id))}
+function afterIntro(){
+ if(S.turn===4){setQueue("owner",[byRole("大家").id])}
+ else beginPrivate();
+}
+function setQueue(phase,ids){S.phase=phase;S.queue=ids;S.qi=0;S.open=false;if(["select","owner","pre","vote"].includes(phase))S.players.forEach(p=>{if(ids.includes(p.id)){p.choice=null}});render()}
+function cur(){return S.players[S.queue[S.qi]]}
+function openCur(){S.open=true;render()}
+function flush(p){p.notes.push(...p.fresh.map(x=>x.t));p.fresh=[]}
+function nextInQueue(){S.qi++;S.open=false;if(S.qi>=S.queue.length)afterQueue();render();window.scrollTo(0,0)}
+function afterQueue(){
+ const ph=S.phase;
+ if(ph==="private"){S.phase="talk";return}
+ if(ph==="owner"){resolveOwner();beginPrivate();return}
+ if(ph==="select"){
+  S.players.forEach(p=>{if(p.choice)p.history.push("第"+S.turn+"ターン："+p.choice.label)});
+  const pub=[resolve1,resolve2,resolve3,resolve4][S.turn-1]();derive();
+  S.narr=pub.join("\n")||"表立った変化はなかった。それぞれが何をしたかは、本人だけが知っている。";
+  S.pub.push("第"+S.turn+"ターンの結果\n"+S.narr);
+  S.turn++;startTurn();return;
+ }
+ if(ph==="pre"){resolvePre();S.phase="preReveal";return}
+ if(ph==="vote"){resolveEnding();S.phase="end";return}
+}
+function confirmChoice(){
+ const el=document.querySelector("input[name=ch]:checked");if(!el){alert("行動を一つ選んでください。");return}
+ const p=cur(),list=getChoices(p);p.choice=list[+el.value];
+ if(S.phase==="owner")flush(p);
+ nextInQueue();
+}
+function confirmVote(){const el=document.querySelector("input[name=vote]:checked");if(!el){alert("方針を一つ選んでください。");return}cur().vote=el.value;nextInQueue()}
+
+/* ---------------- 表示 ---------------- */
+const PHASE={intro:"共通の状況",owner:"大家の判断",private:"個別情報",talk:"対話",select:"個別選択",pre:"最後の行動",preReveal:"公開と対話",vote:"最終方針",end:"エンディング"};
+function render(){
+ if(!S)return;
+ $("turnTag").textContent="第"+Math.min(S.turn,5)+"ターン　"+TITLE[Math.min(S.turn,5)-1];
+ $("phaseTag").textContent=PHASE[S.phase];
+ let h="";
+ const ph=S.phase;
+ if(ph==="intro"){
+  if(S.narr&&S.turn>1)h+=`<h3>前のターンの結果（公開）</h3><div class="story">${esc(S.narr)}</div>`;
+  h+=`<h2>${esc(TITLE[S.turn-1])}</h2><div class="story">${esc(commonText())}</div>`;
+  h+=`<p class="muted">全員で読んでください。読み終えたら、一人ずつ端末を回して個別情報を確認します${S.turn>1?"（前のターンで自分に起きたことも、そこで分かります）":""}。</p><button onclick="afterIntro()">個別情報の確認へ</button>`;
+ }
+ else if(["private","owner","select","pre","vote"].includes(ph)){
+  if(S.qi>=S.queue.length){h="<p>処理中…</p>"}
+  else{
+   const p=cur();
+   if(!S.open){
+    h=`<div class="curtain"><p>端末を次の人に渡してください。</p><div class="who">${esc(p.role)}</div><p class="muted">${esc(p.role)}以外の人は、画面を見ないでください。<br>（${S.qi+1}／${S.queue.length}人目）</p><button onclick="openCur()">${esc(p.role)}です。表示する</button></div>`;
+   }else h=personalView(p);
+  }
+ }
+ else if(ph==="talk"||ph==="preReveal"){
+  if(ph==="preReveal")h+=`<div class="story alert">${esc(S.mid)}</div>`;
+  else if(S.mid)h+=`<h3>状況の変化（公開）</h3><div class="story alert">${esc(S.mid)}</div>`;
+  const silent=S.players.filter(p=>!isFree(p));
+  h+=`<h2>対話</h2><div class="notice">自由に話し合ってください。真実を話す義務はありません。嘘も、黙っているのも自由です。<br>ただし物語に反映されるのは、このあと選ぶ「行動」だけです。</div>`;
+  if(silent.length)h+=`<div class="notice"><span class="tag red">発言不可</span>${esc(names(silent))}は離れに閉じ込められているため、この対話に参加できません。</div>`;
+  h+=`<div class="timer" id="timer">--:--</div><div class="row"><button class="secondary" onclick="startTimer(180)">3分タイマー</button><button class="secondary" onclick="startTimer(300)">5分タイマー</button></div>`;
+  if(ph==="talk"){
+   const label=S.turn===5?"対話を終えて、最後の行動へ":"対話を終えて、個別選択へ";
+   h+=`<div class="row"><button onclick="stopTimer();setQueue('${S.turn===5?"pre":"select"}',S.players.map(p=>p.id))">${label}</button></div>`;
+  }else{
+   h+=`<p class="muted">投票できるのは、離れに閉じ込められていない人だけです。多数決で方針を決めますが、結末は一人ずつ、それぞれの状況で決まります。</p><div class="row"><button onclick="stopTimer();setQueue('vote',S.players.filter(isFree).map(p=>p.id))">対話を終えて、最終方針の投票へ</button></div>`;
+  }
+ }
+ else if(ph==="end"){
+  const f=S.f;
+  h+=`<h2>結末</h2><div class="story">${esc(f.ending)}</div><p class="muted">投票：送りをしてから出る ${f.counts.okuri}／このまま出る ${f.counts.exit}／家に残る ${f.counts.stay}</p>`;
+  h+=`<table><tr><th>役割</th><th>結末</th></tr>${S.players.map(p=>`<tr><td>${esc(p.role)}</td><td>${esc(OUT[p.outcome])}</td></tr>`).join("")}</table>`;
+  h+=`<div class="row"><button onclick="reveal()">全員の秘密・個人目的・行動履歴を公開する</button></div><div id="reveal"></div>`;
+ }
+ $("view").innerHTML=h;
+ renderSide();
+}
+function infoBlock(p){
+ let h="";
+ const res=p.fresh.filter(x=>x.kind==="result"),inf=p.fresh.filter(x=>x.kind==="info");
+ if(res.length)h+=`<h3>前のターンで、あなたに起きたこと</h3>`+res.map(x=>`<div class="private new">${esc(x.t)}</div>`).join("");
+ if(inf.length)h+=`<h3>${S.phase==="owner"?"あなただけが知っていること":"あなたにだけ届いた情報"}</h3>`+inf.map(x=>`<div class="private new">${esc(x.t)}</div>`).join("");
+ if(p.notes.length)h+=`<details><summary>これまでに分かっていること（${p.notes.length}件）</summary>${p.notes.map(t=>`<div class="private">${esc(t)}</div>`).join("")}</details>`;
+ return h;
+}
+function personalView(p){
+ const ph=S.phase;
+ let h=`<div class="notice"><b>${esc(p.role)}</b> <span class="tag ${isFree(p)?"":"red"}">${isFree(p)?"現在地："+esc(LOCN[p.loc]):"閉じ込められている"}</span><br><small>個人目的：${esc(GOAL[p.role])}</small></div>`;
+ if(ph==="private"){
+  h+=infoBlock(p)+`<div class="row"><button onclick="flush(cur());nextInQueue()">確認した（画面を隠して次の人へ）</button></div>`;
+  return h;
+ }
+ if(ph==="vote"){
+  h+=`<h3>最終方針に投票してください</h3>`+[["okuri","送りをしてから出る"],["exit","このまま出る"],["stay","家に残る"]].map(([v,l])=>`<label class="choice"><input type="radio" name="vote" value="${v}"><span>${l}</span></label>`).join("");
+  h+=`<div class="row"><button onclick="confirmVote()">投票を確定</button></div>`;return h;
+ }
+ // owner / select / pre
+ h+=infoBlock(p);
+ const list=getChoices(p);
+ const head=ph==="owner"?"大家の決断（あなたにだけ表示）":ph==="pre"?"最後の行動を一つ選んでください（確定後、全員に公開されます）":"行動を一つ選んでください（内容は公開されません）";
+ h+=`<h3>${head}</h3>`+list.map((c,i)=>`<label class="choice"><input type="radio" name="ch" value="${i}"><span>${esc(c.label)}</span></label>`).join("");
+ h+=`<div class="row"><button onclick="confirmChoice()">この行動で確定</button></div>`;
+ return h;
+}
+function renderSide(){
+ const loc=p=>isFree(p)?LOCN[p.loc]:"所在不明";
+ $("status").innerHTML=`<p>第${Math.min(S.turn,5)}ターン／${PHASE[S.phase]}</p><table>${S.players.map(p=>`<tr><td>${esc(p.role)}</td><td>${esc(loc(p))}</td></tr>`).join("")}</table>`;
+ $("pub").innerHTML=S.pub.length?S.pub.slice().reverse().map(x=>`<p>${esc(x)}</p>`).join(""):"まだありません。";
+}
+function startTimer(sec){stopTimer();let end=Date.now()+sec*1000;const tick=()=>{const el=$("timer");if(!el){stopTimer();return}const r=Math.max(0,Math.round((end-Date.now())/1000));el.textContent=String(Math.floor(r/60)).padStart(2,"0")+":"+String(r%60).padStart(2,"0");if(r<=0){stopTimer();el.textContent="時間です"}};tick();timerId=setInterval(tick,500)}
+function stopTimer(){if(timerId)clearInterval(timerId);timerId=null}
+function reveal(){
+ const f=S.f;
+ let h=`<h3>真相</h3><div class="story">十五年前まで、この家には篠と娘の雪が暮らしていた。篠は毎年彼岸に仏間で火を焚き、家に寄ってくる死者に帰り道を照らしていた。\nそれを気味悪がった大家は、篠を追い出した。家を守るためだと信じて。雪は親戚に引き取られ、名前を変えて育った。\n篠は家を離れなかった。壁の奥の小部屋に籠もって火を守り、やがて火とともに家の一部になった。娘が帰るのを待ちながら。\n——その雪が、妻として、この家に帰ってきた。だから家は扉を閉じた。篠の「悪意」とは、娘を二度と奪わせまいとする執着だった。</div>`;
+ h+=`<h3>物語の鍵（達成状況）</h3><table><tr><td>火の支度</td><td>${f.prepared?"○":"×"}</td></tr><tr><td>写真を供える</td><td>${f.offered?"○":"×"}</td></tr><tr><td>名を呼ぶ</td><td>${(f.called||[f.offerer,...f.preparers].filter(x=>x!=null).some(i=>has(S.players[i],"name")))?"○":"×"}</td></tr><tr><td>別れの訳が語られる</td><td>${f.truthPublic?"○":"×"}</td></tr><tr><td>最終方針</td><td>${{okuri:"送りをしてから出る",exit:"このまま出る",stay:"家に残る",split:"まとまらなかった"}[f.policy]}</td></tr></table>`;
+ S.players.forEach(p=>{const ok=goalMet(p);
+  h+=`<h3>${esc(p.role)}　<span class="${ok?"ok":"ng"}">個人目的：${ok?"達成":"未達成"}</span></h3><div class="private"><b>個人目的</b>：${esc(GOAL[p.role])}\n<b>結末</b>：${esc(OUT[p.outcome])}\n<b>知っていたこと</b>：${esc([...p.keys].map(k=>KSHORT[k]).join("、")||"なし")}\n<b>行動</b>：\n${esc(p.history.join("\n"))}</div>`;
+ });
+ $("reveal").innerHTML=h;
+}
+</script>
+</body></html>
