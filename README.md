@@ -18,6 +18,8 @@
 | `higan_no_ie/index.html` | 試作 v2（ゲーム本体） |
 | `higan_no_ie/彼岸の家_台本v2.md` | 真相・ターン別台本・結末判定・個人目的 |
 | `higan_no_ie/v1_prototype.html` | 最初の試作（比較用） |
+| `higan_no_ie/シミュレーション結果.md` | 自動通しプレイによる検証結果 |
+| `higan_no_ie/sim/` | 検証用スクリプト（Playwright で実行） |
 
 ### 未実装
 - 複数端末での同期

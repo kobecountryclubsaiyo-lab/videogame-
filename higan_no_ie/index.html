@@ -72,7 +72,7 @@ const ROLES=["大家","夫","妻","尋ね人","友人A","友人B"];
 const LOCN={ima:"居間",hall:"廊下の奥",butsuma:"仏間",genkan:"玄関",room:"小部屋",hanare:"離れ"};
 const GOAL={
  "大家":"篠の件に決着をつける：送りを成功させる。または、追い出した経緯を皆の前で明かされないまま、自分が脱出する。",
- "夫":"妻と同じ結末を迎える（二人とも脱出する、または二人とも家に残る）。",
+ "夫":"妻と同じ結末を迎える（二人とも脱出する、二人とも家に残る、など）。",
  "妻":"写真の女性が誰なのか、そして自分が何者なのかを知る。",
  "尋ね人":"叔母・篠の行方を知る。",
  "友人A":"無事に家から脱出する。",
@@ -97,9 +97,10 @@ const K={
  fate:"篠は家を出ていなかった。壁の奥の小部屋に籠もったまま、この家の一部になっている。",
  evict:"十五年前の彼岸、大家は篠を家から追い出した。篠が毎年仏間で火を焚き、「あの家は死人を呼ぶ」と噂になったからだ。娘は親戚に引き取られた。",
  method:"送りの方法が分かった：仏間で火を灯し、その人の写真を供え、名を呼び、別れの訳を語って送る。",
- identity:"あなたは篠の娘、雪だ。この家は、あなたが生まれた家だ。"
+ identity:"あなたは篠の娘、雪だ。この家は、あなたが生まれた家だ。",
+ note:"篠の書き置き（着物の袂に入っていた）：「雪へ。母さんはこの家を出される。仏間で火を焚くのを、死人を呼ぶと言われたせいだ。あの火は、帰ってきた人たちを送るための火なのに。もしあなたが帰ってきたら、写真を供え、名を呼び、訳を話して、私を送っておくれ」"
 };
-const KSHORT={ledger:"賃貸台帳",photo:"写真",photoBack:"写真の裏",name:"写真の女性＝篠",letter:"叔母の手紙",fire:"仏間の火の跡",paperFrag:"紙片（断片）",paperFull:"紙片（全文）",wall:"新しい壁",voice:"呼ぶ声",yukiMem:"「ゆき」の記憶",yukiName:"娘の名＝雪",kimono:"子どもの着物",diary:"篠の日記",fate:"篠の行方",evict:"追い出しの経緯",method:"送りの方法",identity:"妻＝雪"};
+const KSHORT={ledger:"賃貸台帳",photo:"写真",photoBack:"写真の裏",name:"写真の女性＝篠",letter:"叔母の手紙",fire:"仏間の火の跡",paperFrag:"紙片（断片）",paperFull:"紙片（全文）",wall:"新しい壁",voice:"呼ぶ声",yukiMem:"「ゆき」の記憶",yukiName:"娘の名＝雪",kimono:"子どもの着物",diary:"篠の日記",fate:"篠の行方",evict:"追い出しの経緯",method:"送りの方法",identity:"妻＝雪",note:"篠の書き置き"};
 
 let S=null,timerId=null;
 const ps=()=>S.players;
@@ -108,6 +109,7 @@ const isFree=p=>p&&p.status==="free";
 const has=(p,k)=>!!p&&p.keys.has(k);
 function addK(p,k,txt){if(!p||p.keys.has(k))return false;p.keys.add(k);p.fresh.push({kind:"info",t:txt||K[k]});return true}
 function note(p,t,kind="result"){if(p)p.fresh.push({kind,t})}
+function takeKimono(p){addK(p,"kimono");if(S.f.noteHolder==null){S.f.noteHolder=p.id;addK(p,"note");note(p,"着物の袂に書き置きが入っていた。書き置きはあなたが手元に持っている。")}}
 function names(list){return list.map(x=>x.role).join("と")}
 function derive(){
  let ch=true;
@@ -115,9 +117,9 @@ function derive(){
   for(const p of S.players){
    const a=(k,c)=>{if(c&&!has(p,k)){addK(p,k);ch=true}};
    a("name",has(p,"photo")&&(has(p,"letter")||has(p,"photoBack")));
-   a("yukiName",has(p,"photoBack")||has(p,"kimono")||has(p,"diary"));
+   a("yukiName",has(p,"photoBack")||has(p,"kimono")||has(p,"diary")||has(p,"note"));
    a("fate",has(p,"diary"));
-   a("method",has(p,"diary")||has(p,"paperFull")||(has(p,"fire")&&has(p,"paperFrag")));
+   a("method",has(p,"diary")||has(p,"note")||has(p,"paperFull")||(has(p,"fire")&&has(p,"paperFrag")));
    a("identity",p.role==="妻"&&has(p,"yukiMem")&&has(p,"yukiName"));
   }
  }
@@ -128,7 +130,7 @@ function startGame(){
  const n=+$("count").value;
  S={n,turn:1,phase:"intro",queue:[],qi:0,open:false,narr:"",mid:"",pub:[],
   players:ROLES.slice(0,n).map((r,i)=>({id:i,role:r,keys:new Set(),notes:[],fresh:[],history:[],choice:null,pre:null,vote:null,status:"free",loc:"ima",outcome:null})),
-  f:{wallOpen:false,diaryHolder:null,diaryBurned:false,photoHolder:null,truthPublic:false,prepared:false,preparers:[],offered:false,offerer:null,called:false,wifeAnswer:false,husbandHold:false,doorHolders:[],policy:null,success:false,ending:"",counts:null}};
+  f:{wallOpen:false,diaryHolder:null,noteHolder:null,ownerRestrained:false,diaryBurned:false,photoHolder:null,truthPublic:false,prepared:false,preparers:[],offered:false,offerer:null,called:false,wifeAnswer:false,husbandHold:false,doorHolders:[],policy:null,success:false,ending:"",counts:null}};
  S.f.photoHolder=byRole("妻").id;
  const o=byRole("大家");
  addK(o,"evict","十五年前の彼岸、あなたはこの家から篠という女性を追い出した。篠が毎年仏間で火を焚き、「あの家は死人を呼ぶ」と噂になったからだ。娘は親戚に引き取られた。家を守るためだったと、今も思っている。この話は誰にもしていない。");
@@ -223,6 +225,7 @@ function getChoices(p){
   if(holder)add("offer","写真を仏間に供える");
   if(["name","ledger","letter","diary","photoBack"].some(k=>has(p,k)))add("call","仏間で「篠」の名を呼ぶ");
   if(f.diaryHolder===p.id&&!f.diaryBurned)add("share_diary","篠の日記を皆の前で読み上げる");
+  if(f.noteHolder===p.id)add("share_note","篠の書き置きを皆の前で読み上げる");
   if(r==="大家"&&!f.truthPublic)add("confess","皆の前で、篠を追い出した経緯を明かす");
   if(r==="妻"&&has(p,"identity"))add("answer","母の声に応える（この家に残る）");
   if(r==="夫"&&isFree(byRole("妻")))add("hold","妻の手を離さない");
@@ -250,11 +253,12 @@ function getChoices(p){
  }
  if(T===4){
   if(!isFree(p)){add("esc","今すぐ自力で抜け出す");add("wait","助けが来るのを待つ");add("noise","戸を叩いて音を立てる");return C}
-  add("hanare","離れを見に行く");
+  if(!(r==="大家"&&f.ownerRestrained))add("hanare","離れを見に行く");
   if(has(p,"method"))add("prep","仏間で送りの支度をする");
   if(f.wallOpen&&f.diaryHolder==null&&!f.diaryBurned)add("room_read","小部屋の書き物を探して読む");
   if(f.wallOpen&&!has(p,"kimono"))add("room_kimono","小部屋の行李を調べる");
   if(f.diaryHolder===p.id&&!f.diaryBurned)add("share_diary","篠の日記を皆の前で読み上げる");
+  if(f.noteHolder===p.id)add("share_note","篠の書き置きを皆の前で読み上げる");
   if(r==="友人B")add("showpaper_all","紙片を皆に見せる");
   if(holder)per("give_photo",n=>"写真を"+n+"に預ける",others.filter(isFree));
   if(r==="尋ね人")add("search","家の奥で叔母の痕跡を探す");
@@ -326,7 +330,7 @@ function resolve3(){
   if(oc==="take"){f.diaryHolder=o.id;addK(o,"diary");note(o,"皆より先に小部屋へ入り、机の上の日記を持ち出した。");o.loc="room"}
   if(oc==="open"){o.loc="room";note(o,"板を外し、皆に小部屋を見せた。")}
   openers.forEach(p=>{p.loc="room";
-   if(p.choice.id==="open_kimono")addK(p,"kimono");
+   if(p.choice.id==="open_kimono")takeKimono(p);
    else if(oc==="take")note(p,"小部屋の机に、何かを持ち去ったばかりの跡がある。埃の上に、帳面の形が残っている。");
    else{addK(p,"diary");if(f.diaryHolder==null){f.diaryHolder=p.id;note(p,"日記はあなたが手元に持っている。")}}
   });
@@ -352,7 +356,7 @@ function resolve3(){
 /* ---------------- 処理：第4ターン（大家の判断） ---------------- */
 function resolveOwner(){
  const P=S.players,o=byRole("大家"),c=o.choice,f=S.f,pub=[];
- if(c.id==="restrain"){const t=P[c.t];t.status="bound";t.loc="hanare";note(t,"大家に腕をつかまれ、離れへ連れて行かれた。戸に閂がかけられた。");note(o,t.role+"を離れに閉じ込めた。");pub.push(t.role+"の姿が見えない。")}
+ if(c.id==="restrain"){f.ownerRestrained=true;const t=P[c.t];t.status="bound";t.loc="hanare";note(t,"大家に腕をつかまれ、離れへ連れて行かれた。戸に閂がかけられた。");note(o,t.role+"を離れに閉じ込めた。");pub.push(t.role+"の姿が見えない。")}
  if(c.id==="confess"){f.truthPublic=true;P.forEach(x=>x!==o&&addK(x,"evict"));pub.push("大家が、十五年前に篠を追い出した経緯を皆の前で明かした。")}
  if(c.id==="burn"){f.diaryBurned=true;f.diaryHolder=null;note(o,"日記を燃やした。");pub.push("どこかで、紙の焼ける匂いがした。")}
  if(c.id==="door"){addK(o,"voice");note(o,"玄関を試したが、戸の外はまた廊下だった。")}
@@ -369,7 +373,8 @@ function resolve4(){
    case"showpaper_all":{const k=has(p,"paperFull")?"paperFull":"paperFrag";P.forEach(x=>addK(x,k));pub.push("友人Bが紙片を皆に見せた。");break}
    case"give_photo":f.photoHolder=t.id;addK(t,"photo");note(t,p.role+"から写真を預かった。");note(p,"写真を"+t.role+"に預けた。");break;
    case"room_read":if(f.diaryHolder==null&&!f.diaryBurned){addK(p,"diary");f.diaryHolder=p.id;note(p,"小部屋で篠の日記を見つけた。日記はあなたが手元に持っている。")}else note(p,"小部屋に書き物は残っていなかった。");p.loc="room";break;
-   case"room_kimono":addK(p,"kimono");p.loc="room";break;
+   case"room_kimono":takeKimono(p);p.loc="room";break;
+   case"share_note":if(f.noteHolder===p.id){f.truthPublic=true;P.forEach(x=>addK(x,"note"));pub.push(p.role+"が、篠の書き置きを皆の前で読み上げた。")}break;
    case"prep":f.prepared=true;if(!f.preparers.includes(p.id))f.preparers.push(p.id);p.loc="butsuma";note(p,"仏間に燭台と火種を整えた。");pub.push("仏間に、火の支度がされた。");break;
    case"search":if(f.wallOpen){addK(p,"fate");note(p,"小部屋の奥で、篠の櫛と、燃え尽きた蝋燭の山を見つけた。")}else note(p,"壁の向こうから、すすり泣きが聞こえた。");break;
    case"near":note(p,"妻のそばを離れずにいた。");note(byRole("妻"),"夫がずっとそばにいた。");break;
@@ -407,6 +412,7 @@ function resolvePre(){
   case"offer":f.offered=true;f.offerer=p.id;break;
   case"call":f.called=true;break;
   case"share_diary":if(f.diaryHolder===p.id&&!f.diaryBurned){f.truthPublic=true;P.forEach(x=>addK(x,"diary"))}break;
+  case"share_note":if(f.noteHolder===p.id){f.truthPublic=true;P.forEach(x=>addK(x,"note"))}break;
   case"confess":f.truthPublic=true;P.forEach(x=>x!==p&&addK(x,"evict"));break;
   case"answer":f.wifeAnswer=true;break;
   case"hold":f.husbandHold=true;break;
@@ -427,7 +433,7 @@ function resolveEnding(){
  f.success=f.policy==="okuri"&&f.offered&&f.prepared&&nameOK&&f.truthPublic;
  const w=byRole("妻"),h=byRole("夫");let txt="";
  if(f.success){
-  txt="仏間に火が灯る。供えられた写真の前で「篠」と名が呼ばれ、十五年前に何があったのかが語られた。\n廊下の奥から足音が近づき、火の前で止まる。着物の女は写真を見下ろし、それから妻の方を振り返った。\n——帰りなさい、雪。";
+  txt="仏間に火が灯る。供えられた写真の前で「篠」と名が呼ばれ、十五年前に何があったのかが語られた。\n廊下の奥から足音が近づき、火の前で止まる。着物の女は写真を見下ろし、"+(isFree(w)?"それから妻の方を振り返った。":"それから、離れの方を振り返った。")+"\n——帰りなさい、雪。";
   if(f.wifeAnswer)txt+="\n母の声に応えようとした妻の手を、篠はそっと押し返した。";
   txt+="\n家鳴りが止んだ。離れの閂も、いつの間にか外れている。玄関の向こうには、本物の夜風が吹いていた。";
   P.forEach(p=>p.outcome="escape");
@@ -438,6 +444,8 @@ function resolveEnding(){
   txt="方針は割れたまま、時間だけが過ぎた。家鳴りが一つに重なり、廊下が際限なく伸びていく。\n気がつくと、互いの姿が見えなくなっていた。";
   if(f.doorHolders.length)txt+="\n玄関の戸を押さえていた者だけが、かろうじて外へ転がり出た。";
   P.forEach(p=>p.outcome=(isFree(p)&&f.doorHolders.includes(p.id)&&p!==w)?"escape":"lost");
+  if(f.wifeAnswer){w.outcome="stay";txt+="\n母の声に応えた妻だけは、迷わず仏間へ歩いていった。"}
+  if(f.husbandHold&&isFree(h)){h.outcome=w.outcome;txt+="\n夫は最後まで、妻の手を離さなかった。"}
  }else{
   if(f.policy==="okuri"){
    const miss=[];
@@ -447,7 +455,7 @@ function resolveEnding(){
    if(!f.truthPublic)miss.push("なぜ引き離されたのか、誰も語らなかった。");
    txt="あなたたちは仏間に集まった。だが、送りは成らなかった。\n"+miss.join("\n")+"\nやがて火は消え、あなたたちは玄関へ走った。";
   }else txt="あなたたちは玄関へ走った。戸の外には本物の夕闇がある。";
-  txt+="\nだが妻が敷居をまたごうとした瞬間、戸の向こうは再び廊下になった。家は、妻を離さなかった。";
+  txt+=isFree(w)?"\nだが妻が敷居をまたごうとした瞬間、戸の向こうは再び廊下になった。家は、妻を離さなかった。":"\n妻は、離れに閉じ込められたままだった。家は、妻を離さなかった。";
   P.forEach(p=>{
    if(!isFree(p))p.outcome="left";
    else if(p===w)p.outcome="stay";
@@ -465,7 +473,7 @@ function goalMet(p){
  const f=S.f,w=byRole("妻"),esc_=x=>x.outcome==="escape";
  switch(p.role){
   case"大家":return f.success||(esc_(p)&&!f.truthPublic);
-  case"夫":return esc_(p)===esc_(w)&&p.outcome!=="lost"&&w.outcome!=="lost";
+  case"夫":{const g=o=>o==="escape"?"外":o==="lost"?"飲":"家";return g(p.outcome)===g(w.outcome)}
   case"妻":return has(p,"identity");
   case"尋ね人":return has(p,"fate")||f.success;
   case"友人A":return esc_(p);
@@ -479,7 +487,7 @@ function startTurn(){
  if(S.turn===3&&!S.players.some(p=>has(p,"wall"))){S.f.wallFoundByAll=true;S.players.forEach(p=>addK(p,"wall"))}else S.f.wallFoundByAll=false;
  render();
 }
-function beginPrivate(){S.players.forEach(baseInfo);setQueue("private",S.players.map(p=>p.id))}
+function beginPrivate(){S.players.forEach(baseInfo);derive();setQueue("private",S.players.map(p=>p.id))}
 function afterIntro(){
  if(S.turn===4){setQueue("owner",[byRole("大家").id])}
  else beginPrivate();
