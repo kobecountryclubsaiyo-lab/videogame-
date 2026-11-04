@@ -71,16 +71,16 @@ const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const ROLES=["大家","夫","妻","尋ね人","友人A","友人B"];
 const LOCN={ima:"居間",hall:"廊下の奥",butsuma:"仏間",genkan:"玄関",room:"小部屋",hanare:"離れ"};
 const GOAL={
- "大家":"篠の件に決着をつける：送りを成功させる。または、追い出した経緯を皆の前で明かされないまま、自分が脱出する。",
- "夫":"妻と同じ結末を迎える（二人とも脱出する、二人とも家に残る、など）。",
- "妻":"写真の女性が誰なのか、そして自分が何者なのかを知る。",
- "尋ね人":"叔母・篠の行方を知る。",
+ "大家":"篠の件に決着をつける。次のどれか：①送りを成功させる。②追い出した経緯を誰にも暴かれないまま、脱出する。③自分の口から経緯を明かし、誰も閉じ込めず、篠の火が灯り名が呼ばれるのを見届けて、脱出する。",
+ "夫":"妻を守る。次のどちらか：①妻と同じ結末を迎える。②妻の正体（篠の娘・雪）に気づき、終盤（第4・5ターン）に妻のそばを離れずにいるか友人Aから妻の昔を聞いていて、妻を離れに取り残させない。",
+ "妻":"自分が何者かを知り、母と向き合う。次のどれか：①母を送る（送り成功）。②母の声に応える。③最後に仏間で母のために動く（写真を供える・名を呼ぶ・火の支度）。",
+ "尋ね人":"叔母・篠の行方を知る。そのうえで、写真の女性が叔母だと確かめるか、自分の手で叔母の名を呼ぶ。（送りが成功すれば、それでもよい）",
  "友人A":"妻と尋ね人の二人が、互いが従姉妹（いとこ）だと知る。",
- "友人B":"紙片が示す異変の理由（送りの方法）を突き止める。"
+ "友人B":"紙片が示す送りの方法を突き止め、それを形にする。次のどれか：①自分で火の支度をする。②紙片を皆に見せる。③火の支度と写真の供えが揃う。"
 };
 // 事実（知識）の一覧。キー → 本文
 const K={
- ledger:"賃貸台帳：十五年前の彼岸まで、この家には「篠（しの）」という女性が娘と住んでいた。退去理由の欄は空白のままだ。",
+ ledger:"賃貸台帳：十五年前の彼岸まで、この家には「篠（しの）」という女性が娘と住んでいた。退去理由の欄には「家賃滞納」とある（大家の字だ）。",
  photo:"古い写真：着物の女性（左目の下にほくろ）と、幼い女の子が写っている。",
  photoBack:"写真の裏に「篠と雪　彼岸」と書かれている。",
  name:"写真の女性は「篠（しの）」だ。",
@@ -117,7 +117,7 @@ function introduce(a,x,y){
  S.f.introUsed=true;
  const tell=(to,about)=>{if(about.role==="妻")addK(to,"aboutWife");else if(about.role==="尋ね人")addK(to,"aboutSeeker");else note(to,"友人Aを通じて、"+about.role+"とゆっくり話す場ができた。友人Aが"+about.role+"について知っていることは、特になかった。")};
  tell(x,y);tell(y,x);note(x,"友人Aに、"+y.role+"と引き合わされた。");note(y,"友人Aに、"+x.role+"と引き合わされた。");note(a,x.role+"と"+y.role+"を引き合わせた。もう引き合わせはできない。");
- return "友人Aが、"+x.role+"と"+y.role+"を引き合わせた。";
+ return "友人Aが、"+x.role+"と"+y.role+"を引き合わせた。友人Aは、二人の事情を前から知っていたようだ。";
 }
 function names(list){return list.map(x=>x.role).join("と")}
 function derive(){
@@ -140,7 +140,7 @@ function startGame(){
  const n=+$("count").value;
  S={n,turn:1,phase:"intro",queue:[],qi:0,open:false,narr:"",mid:"",pub:[],
   players:ROLES.slice(0,n).map((r,i)=>({id:i,role:r,keys:new Set(),notes:[],fresh:[],history:[],choice:null,pre:null,vote:null,status:"free",loc:"ima",outcome:null})),
-  f:{wallOpen:false,diaryHolder:null,noteHolder:null,ownerRestrained:false,introUsed:false,diaryBurned:false,photoHolder:null,truthPublic:false,prepared:false,preparers:[],offered:false,offerer:null,called:false,wifeAnswer:false,husbandHold:false,doorHolders:[],policy:null,success:false,ending:"",counts:null}};
+  f:{wallOpen:false,diaryHolder:null,noteHolder:null,ownerRestrained:false,introUsed:false,ownerConfessed:false,seekerCalled:false,diaryBurned:false,photoHolder:null,truthPublic:false,prepared:false,preparers:[],offered:false,offerer:null,called:false,wifeAnswer:false,husbandHold:false,doorHolders:[],policy:null,success:false,ending:"",counts:null}};
  S.f.photoHolder=byRole("妻").id;
  const o=byRole("大家");
  addK(o,"evict","十五年前の彼岸、あなたはこの家から篠という女性を追い出した。篠が毎年仏間で火を焚き、「あの家は死人を呼ぶ」と噂になったからだ。娘は親戚に引き取られた。家を守るためだったと、今も思っている。この話は誰にもしていない。");
@@ -198,7 +198,7 @@ function baseInfo(p){
   const bound=S.players.filter(x=>!isFree(x));
   if(r==="大家")I("家鳴りが強くなっていく。十五年前の、あの彼岸の夜と同じだ。");
   if(r==="夫")I(isFree(w)?"妻の手がひどく冷たい。玄関の方ばかり見ている。":"妻の姿が見えない。");
-  if(r==="妻"){addK(p,"voice","玄関の外から、また「ゆき」と呼ぶ声がする。");if(has(p,"identity"))I("それが母の声だと、今のあなたには分かる。母は、あなたにここに残ってほしいのだ。")}
+  if(r==="妻"){addK(p,"voice","玄関の外から、また「ゆき」と呼ぶ声がする。");I("声はこうも言った。「その人たちを信じてはいけない。あなたを連れて行ったのは、その人たちだよ」");if(has(p,"identity"))I("それが母の声だと、今のあなたには分かる。母は、あなたにここに残ってほしいのだ。")}
   if(r==="尋ね人")I(has(p,"fate")?"叔母はこの家から一度も出ていない。その確信がある。":"叔母の手掛かりは、まだこの家のどこかにある。");
   if(r==="友人A")I(bound.length?"離れの方に、誰かの気配がある。":"仏間に、着物の女が座ってこちらを見ている。");
   if(r==="友人B")I(has(p,"method")?"紙片の意味が分かってきた。":"紙片が、ほのかに温かい。");
@@ -371,7 +371,7 @@ function resolve3(){
 function resolveOwner(){
  const P=S.players,o=byRole("大家"),c=o.choice,f=S.f,pub=[];
  if(c.id==="restrain"){f.ownerRestrained=true;const t=P[c.t];t.status="bound";t.loc="hanare";note(t,"大家に腕をつかまれ、離れへ連れて行かれた。戸に閂がかけられた。");note(o,t.role+"を離れに閉じ込めた。");pub.push(t.role+"の姿が見えない。")}
- if(c.id==="confess"){f.truthPublic=true;P.forEach(x=>x!==o&&addK(x,"evict"));pub.push("大家が、十五年前に篠を追い出した経緯を皆の前で明かした。")}
+ if(c.id==="confess"){f.confessEarly=!f.truthPublic&&!P.some(x=>x!==o&&(has(x,"diary")||has(x,"note")));f.truthPublic=true;f.ownerConfessed=true;P.forEach(x=>x!==o&&addK(x,"evict"));pub.push("大家が、十五年前に篠を追い出した経緯を皆の前で明かした。")}
  if(c.id==="burn"){f.diaryBurned=true;f.diaryHolder=null;note(o,"日記を燃やした。");pub.push("どこかで、紙の焼ける匂いがした。")}
  if(c.id==="door"){addK(o,"voice");note(o,"玄関を試したが、戸の外はまた廊下だった。")}
  o.history.push("第4ターン（大家の判断）："+c.label);
@@ -425,10 +425,10 @@ function resolvePre(){
  for(const p of P){switch(p.pre.id){
   case"prep":f.prepared=true;if(!f.preparers.includes(p.id))f.preparers.push(p.id);break;
   case"offer":f.offered=true;f.offerer=p.id;break;
-  case"call":f.called=true;break;
+  case"call":f.called=true;if(p.role==="尋ね人")f.seekerCalled=true;break;
   case"share_diary":if(f.diaryHolder===p.id&&!f.diaryBurned){f.truthPublic=true;P.forEach(x=>addK(x,"diary"))}break;
   case"share_note":if(f.noteHolder===p.id){f.truthPublic=true;P.forEach(x=>addK(x,"note"))}break;
-  case"confess":f.truthPublic=true;P.forEach(x=>x!==p&&addK(x,"evict"));break;
+  case"confess":if(!f.truthPublic&&!P.some(x=>x!==p&&(has(x,"diary")||has(x,"note"))))f.confessEarly=true;f.truthPublic=true;f.ownerConfessed=true;P.forEach(x=>x!==p&&addK(x,"evict"));break;
   case"answer":f.wifeAnswer=true;break;
   case"hold":f.husbandHold=true;break;
   case"door":f.doorHolders.push(p.id);break;
@@ -486,14 +486,14 @@ function resolveEnding(){
 }
 const OUT={escape:"脱出した",stay:"家に残った",left:"離れに取り残された",lost:"異変に飲み込まれた"};
 function goalMet(p){
- const f=S.f,w=byRole("妻"),esc_=x=>x.outcome==="escape";
+ const f=S.f,w=byRole("妻"),grp=o=>o==="escape"?"外":o==="lost"?"飲":"家",did=re=>p.history.some(h=>re.test(h));
  switch(p.role){
-  case"大家":return f.success||(esc_(p)&&!f.truthPublic);
-  case"夫":{const g=o=>o==="escape"?"外":o==="lost"?"飲":"家";return g(p.outcome)===g(w.outcome)}
-  case"妻":return has(p,"identity");
-  case"尋ね人":return has(p,"fate")||f.success;
+  case"大家":return f.success||(p.outcome==="escape"&&!f.truthPublic)||(p.outcome==="escape"&&f.ownerConfessed&&!f.ownerRestrained&&f.prepared&&f.called);
+  case"夫":return grp(p.outcome)===grp(w.outcome)||(has(p,"yukiName")&&has(p,"name")&&w.outcome!=="left"&&(did(/第[45].*(妻のそば|妻の手)/)||has(p,"aboutWife")));
+  case"妻":return has(p,"identity")&&(f.success||f.wifeAnswer||["offer","call","prep"].includes(p.pre&&p.pre.id));
+  case"尋ね人":return (has(p,"fate")&&(has(p,"name")||f.seekerCalled))||f.success;
   case"友人A":return has(byRole("妻"),"kin")&&has(byRole("尋ね人"),"kin");
-  case"友人B":return has(p,"method");
+  case"友人B":return has(p,"method")&&(f.preparers.includes(p.id)||did(/紙片を皆/)||(f.prepared&&f.offered));
  }
 }
 

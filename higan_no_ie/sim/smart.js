@@ -60,5 +60,7 @@ const FILE=process.argv[2];
  for(const [k,v] of seen)console.log(k.padEnd(40),v+"通り");
  const A=new Map();res.filter(r=>r[0]!=="4人").forEach(r=>{const k=r[0]+"|引き合わせ"+r[4];const ok=/A[○×]★/.test(r[6]);const e=A.get(k)||[0,0];e[0]++;if(ok)e[1]++;A.set(k,e)});
  for(const [k,[t,o]] of A)console.log("友人Aの目的",k,o+"/"+t);
+const RO=[["大","大家"],["夫","夫"],["妻","妻"],["尋","尋ね人"],["A","友人A"],["B","友人B"]];
+ for(const n of ["4人","5人","6人"]){const rs=res.filter(r=>r[0]===n);console.log("作戦型",n,rs.length+"通り",RO.map(([c,name])=>{const hit=rs.filter(r=>r[6].split(" ").some(x=>x.startsWith(c)));if(!hit.length)return "";const ok=hit.filter(r=>r[6].split(" ").find(x=>x.startsWith(c)).endsWith("★")).length;return name+" "+Math.round(100*ok/hit.length)+"%"}).filter(Boolean).join("  ")+"  送り成功 "+Math.round(100*rs.filter(r=>r[5]==="成功").length/rs.length)+"%")}
  const miss=res.filter(r=>r[0]!=="4人"&&!/A[○×]★/.test(r[6]));console.log("未達の例",miss.slice(0,4).map(r=>r.join(" ")));
 })().then(()=>process.exit());
