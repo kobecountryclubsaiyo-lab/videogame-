@@ -7,7 +7,7 @@ const RUNS=+(process.argv[3]||20000);
  await pg.goto(FILE);
  const res=await pg.evaluate((RUNS)=>{
   render=()=>{};
-  const COOP=new Set("show_all letter_all ledger_all back near readpaper showpaper go_hall open open_read open_kimono confess prep share_diary room_read room_kimono showpaper_all search hanare noise rescue offer call shout".split(" "));
+  const COOP=new Set("introduce show_all letter_all ledger_all back near readpaper showpaper go_hall open open_read open_kimono confess prep share_diary room_read room_kimono showpaper_all search hanare noise rescue offer call shout".split(" "));
   const SECRET=new Set("hide watch block take burn restrain door nothing esc stay".split(" "));
   const PERS=["random","coop","secret"];
   const out={endings:{},goals:{},issues:{},issueEx:{},coverage:{},stats:{},missing:{},runs:0};
@@ -22,7 +22,7 @@ const RUNS=+(process.argv[3]||20000);
    const n=4+(run%3);$("count").value=String(n);startGame();
    const mode=["allRandom","allCoop","allSecret","mixed","mixed"][run%5];
    const pers=S.players.map(()=>mode==="allRandom"?"random":mode==="allCoop"?"coop":mode==="allSecret"?"secret":PERS[Math.floor(Math.random()*3)]);
-   let g=0,restrained=null,surechigai=false;
+   let g=0,restrained=null,surechigai=false,introCount=0,introInfo="使わず";
    while(S.phase!=="end"&&g++<400){
     const ph=S.phase;
     if(ph==="intro")afterIntro();
@@ -35,6 +35,7 @@ const RUNS=+(process.argv[3]||20000);
      else{const l=getChoices(p);if(!l.length){issue("選択肢なし",{role:p.role,ph,T:S.turn});break}
       const c=pick(p,l,pers[p.id]);p.choice=c;inc(out.coverage,"T"+(ph==="pre"?"5前半":ph==="owner"?"4a":S.turn)+" "+p.role+" "+c.id);
       if(ph==="owner"){flush(p);if(c.id==="restrain")restrained=c.t}
+      if(c.id==="introduce"){introCount++;const pr=[S.players[c.t].role,S.players[c.t2].role].sort().join("+");introInfo=(S.phase==="pre"?"T5":"T"+S.turn)+"|"+pr}
       // 4bで大家が自分の閉じ込めた相手を助けに行く
       if(ph==="select"&&S.turn===4&&p.role==="大家"&&c.id==="hanare"&&restrained!=null)issue("大家が自分で閉じ込めた相手をすぐ助けに行ける",{});
       const before=S.players.filter(x=>!isFree(x)).length;
@@ -58,6 +59,9 @@ const RUNS=+(process.argv[3]||20000);
     if(n<6&&/友人B/.test(txt))issue("いない友人Bが文章に出る",{});
     if(n<5&&/友人A/.test(txt))issue("いない友人Aが文章に出る",{});
    });
+   if(introCount>1)issue("引き合わせが2回以上使えた",{introCount});
+   const A=byRole("友人A");if(A){const ok=goalMet(A);const pairOK=/妻\+尋ね人|尋ね人\+妻/.test(introInfo)?"妻と尋ね人":introInfo==="使わず"?"使わず":"別の組";inc(out.stats,"A|"+pairOK+"|試行");if(ok)inc(out.stats,"A|"+pairOK+"|達成");if(pairOK==="妻と尋ね人"){const tt=introInfo.split("|")[0];inc(out.stats,"A時期|"+tt+"|試行");if(ok)inc(out.stats,"A時期|"+tt+"|達成")}
+    inc(out.stats,"A|妻kin",has(byRole("妻"),"kin")?1:0);inc(out.stats,"A|尋ねkin",has(byRole("尋ね人"),"kin")?1:0);inc(out.stats,"A|A人数",1)}
    // 派生の取りこぼし
    const keysBefore=S.players.map(p=>p.keys.size);derive();if(S.players.some((p,i)=>p.keys.size!==keysBefore[i]))issue("終了時点で推理の反映漏れ（派生の遅れ）",{});
    if(f.offered&&f.offerer!=null&&!isFree(S.players[f.offerer])&&false)issue("x",{});
