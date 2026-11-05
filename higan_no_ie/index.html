@@ -36,8 +36,10 @@ details{margin:10px 0}summary{cursor:pointer;color:#e0d5b8}
 .timer{font-size:2rem;font-weight:700;text-align:center;margin:8px 0;font-variant-numeric:tabular-nums}
 .ok{color:#a9d39a}.ng{color:var(--red)}
 table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{border-bottom:1px solid #3b4038;padding:6px 4px;text-align:left;vertical-align:top}
+.goal{background:#20241e;border:1px solid #4e5545;border-radius:8px;padding:10px 12px;margin:8px 0}.goal ul{margin:6px 0 4px;padding-left:1.2em}.goal li{margin:2px 0}
+html,body{overscroll-behavior-y:none}
 footer{text-align:center;color:#92958a;font-size:.8rem;padding:8px 16px 28px}
-@media(max-width:780px){main{grid-template-columns:1fr;margin:12px auto}.panel{padding:14px}}
+@media(max-width:780px){main{grid-template-columns:1fr;margin:12px auto;padding:0 12px}.panel{padding:14px}header{padding:14px 16px}h1{font-size:1.2rem}button{width:100%;padding:14px 16px}.row button{min-width:100%}.curtain{padding:28px 6px}}
 </style>
 </head>
 <body>
@@ -50,7 +52,8 @@ footer{text-align:center;color:#92958a;font-size:.8rem;padding:8px 16px 28px}
   <label>参加人数</label>
   <select id="count"><option value="4">4人（大家・夫・妻・尋ね人）</option><option value="5">5人（＋友人A）</option><option value="6">6人（＋友人A・友人B）</option></select>
   <div class="notice"><b>大切なルール</b><br>・話すのは自由。嘘も、黙っているのも、隠すのも構いません。<br>・システムは会話の内容を判定しません。<br>・物語に反映されるのは、選択肢で<b>「行動」として示したこと</b>だけです（写真を見せる、日記を読み上げる、など）。</div>
-  <button onclick="startGame()">開始する</button>
+  <div id="resume" class="notice hidden"><b>前回の続きがあります</b><br><span id="resumeInfo"></span><div class="row"><button onclick="resumeGame()">続きから再開する</button><button class="secondary" onclick="if(confirm('保存された続きを消して、新しく始めますか？'))clearSave()">保存を消す</button></div></div>
+  <button onclick="if(!loadSave()||confirm('保存された続きを消して、新しく始めますか？'))startGame()">新しく開始する</button>
  </div>
  <div class="panel hidden" id="game">
   <div><span class="tag" id="turnTag"></span><span class="tag" id="phaseTag"></span></div>
@@ -60,7 +63,7 @@ footer{text-align:center;color:#92958a;font-size:.8rem;padding:8px 16px 28px}
 <aside>
  <div class="panel"><h2>ゲーム状況</h2><div id="status" class="muted">開始前</div></div>
  <div class="panel"><h2>公開された出来事</h2><div id="pub" class="log muted">まだありません。</div></div>
- <div class="panel"><h2>この試作について</h2><p class="muted">個別の情報・選択・結果は、システムが持つ「事実」（誰が何を知り、どこにいて、何をしたか）から組み立てています。信頼度や発言の真偽は扱いません。</p><button class="secondary" onclick="if(confirm('最初からやり直しますか？'))location.reload()">最初から</button></div>
+ <div class="panel"><h2>この試作について</h2><p class="muted">個別の情報・選択・結果は、システムが持つ「事実」（誰が何を知り、どこにいて、何をしたか）から組み立てています。信頼度や発言の真偽は扱いません。</p><button class="secondary" onclick="if(confirm('今のゲームを終了して、最初からやり直しますか？（保存も消えます）')){clearSave();location.reload()}">最初から</button></div>
 </aside>
 </main>
 <footer>設計確認用の試作品。分岐と文章はテストプレイ後に調整します。</footer>
@@ -70,14 +73,16 @@ const $=id=>document.getElementById(id);
 const esc=x=>String(x??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const ROLES=["大家","夫","妻","尋ね人","友人A","友人B"];
 const LOCN={ima:"居間",hall:"廊下の奥",butsuma:"仏間",genkan:"玄関",room:"小部屋",hanare:"離れ"};
-const GOAL={
- "大家":"篠の件に決着をつける。次のどれか：①送りを成功させる。②追い出した経緯を誰にも暴かれないまま、脱出する。③自分の口から経緯を明かし、誰も閉じ込めず、篠の火が灯り名が呼ばれるのを見届けて、脱出する。",
- "夫":"妻を守る。次のどちらか：①妻と同じ結末を迎える。②妻の正体（篠の娘・雪）に気づき、終盤（第4・5ターン）に妻のそばを離れずにいるか友人Aから妻の昔を聞いていて、妻を離れに取り残させない。",
- "妻":"自分が何者かを知り、母と向き合う。次のどれか：①母を送る（送り成功）。②母の声に応える。③最後に仏間で母のために動く（写真を供える・名を呼ぶ・火の支度）。",
- "尋ね人":"叔母・篠の行方を知る。そのうえで、写真の女性が叔母だと確かめるか、自分の手で叔母の名を呼ぶ。（送りが成功すれば、それでもよい）",
- "友人A":"妻と尋ね人の二人が、互いが従姉妹（いとこ）だと知る。",
- "友人B":"紙片が示す送りの方法を突き止め、それを形にする。次のどれか：①自分で火の支度をする。②紙片を皆に見せる。③火の支度と写真の供えが揃う。"
+const GOALS={
+ "大家":{h:"過去に決着をつける",pre:"",ways:["送りを成功させる","追い出した経緯を、誰にも暴かれずに脱出する","自分の口で経緯を明かし、誰も閉じ込めず、火が灯り名が呼ばれるのを見届けて脱出する"]},
+ "夫":{h:"妻を守る",pre:"",ways:["妻と同じ結末を迎える","妻の正体に気づき、終盤（第4・5ターン）に妻のそばにいて、離れに取り残させない"]},
+ "妻":{h:"自分が何者かを知り、母と向き合う",pre:"自分が何者かを知ったうえで：",ways:["母を送る（送りを成功させる）","母の声に応える","最後に仏間で、母のために動く（写真を供える・名を呼ぶ・火の支度）"]},
+ "尋ね人":{h:"叔母の行方を突き止める",pre:"叔母の行方を知ったうえで：",ways:["写真の女性が叔母だと確かめる","自分の手で叔母の名を呼ぶ","（または）送りが成功する"]},
+ "友人A":{h:"二人をつなぐ",pre:"",ways:["妻と尋ね人の二人が、互いが従姉妹（いとこ）だと知る（引き合わせは一度だけ）"]},
+ "友人B":{h:"紙片の謎を解き、形にする",pre:"送りの方法を突き止めたうえで：",ways:["自分で火の支度をする","紙片を皆に見せる","火の支度と写真の供えが揃う"]}
 };
+const GOAL=Object.fromEntries(Object.entries(GOALS).map(([r,g])=>[r,g.h+"："+g.pre+g.ways.join("／")]));
+function goalHTML(r){const g=GOALS[r];return `<div class="goal"><b>目的：${esc(g.h)}</b>${g.pre?`<div class="muted">${esc(g.pre)}</div>`:""}<ul>${g.ways.map(w=>`<li>${esc(w)}</li>`).join("")}</ul><small>どれか一つを果たせば達成</small></div>`}
 // 事実（知識）の一覧。キー → 本文
 const K={
  ledger:"賃貸台帳：十五年前の彼岸まで、この家には「篠（しの）」という女性が娘と住んでいた。退去理由の欄には「家賃滞納」とある（大家の字だ）。",
@@ -134,6 +139,16 @@ function derive(){
   }
  }
 }
+
+/* ---------------- 自動保存と再開 ---------------- */
+const SAVE_KEY="higan_no_ie_v2_save";
+function saveGame(){if(!S)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify({at:Date.now(),S},(k,v)=>v instanceof Set?{__set:[...v]}:v))}catch(e){}}
+function loadSave(){try{const t=localStorage.getItem(SAVE_KEY);if(!t)return null;return JSON.parse(t,(k,v)=>v&&typeof v==="object"&&Array.isArray(v.__set)?new Set(v.__set):v)}catch(e){return null}}
+function clearSave(){try{localStorage.removeItem(SAVE_KEY)}catch(e){}$("resume").classList.add("hidden")}
+function resumeGame(){const d=loadSave();if(!d){alert("保存された続きが見つかりません。");return}S=d.S;S.open=false;$("setup").classList.add("hidden");$("game").classList.remove("hidden");render()}
+function showResume(){const d=loadSave();if(!d||!d.S)return;const t=new Date(d.at);$("resumeInfo").textContent=`${d.S.n}人／第${Math.min(d.S.turn,5)}ターン（${PHASE[d.S.phase]||""}）　保存：${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`;$("resume").classList.remove("hidden")}
+window.addEventListener("beforeunload",e=>{if(S&&S.phase!=="end"){e.preventDefault();e.returnValue=""}});
+window.addEventListener("DOMContentLoaded",showResume);
 
 /* ---------------- 開始 ---------------- */
 function startGame(){
@@ -579,6 +594,7 @@ function render(){
  }
  $("view").innerHTML=h;
  renderSide();
+ saveGame();
 }
 function infoBlock(p){
  let h="";
@@ -590,7 +606,7 @@ function infoBlock(p){
 }
 function personalView(p){
  const ph=S.phase;
- let h=`<div class="notice"><b>${esc(p.role)}</b> <span class="tag ${isFree(p)?"":"red"}">${isFree(p)?"現在地："+esc(LOCN[p.loc]):"閉じ込められている"}</span><br><small>個人目的：${esc(GOAL[p.role])}</small></div>`;
+ let h=`<div class="notice"><b>${esc(p.role)}</b> <span class="tag ${isFree(p)?"":"red"}">${isFree(p)?"現在地："+esc(LOCN[p.loc]):"閉じ込められている"}</span></div>${goalHTML(p.role)}`;
  if(ph==="private"){
   h+=infoBlock(p)+`<div class="row"><button onclick="flush(cur());nextInQueue()">確認した（画面を隠して次の人へ）</button></div>`;
   return h;
