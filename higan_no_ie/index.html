@@ -75,7 +75,7 @@ const ROLES=["大家","夫","妻","尋ね人","友人A","友人B"];
 const LOCN={ima:"居間",hall:"廊下の奥",butsuma:"仏間",genkan:"玄関",room:"小部屋",hanare:"離れ"};
 const GOALS={
  "大家":{h:"過去に決着をつける",pre:"",ways:["送りを成功させる","追い出した経緯を、誰にも暴かれずに脱出する","自分の口で経緯を明かし、誰も閉じ込めず、火が灯り名が呼ばれるのを見届けて脱出する"]},
- "夫":{h:"妻を守る",pre:"",ways:["妻と同じ結末を迎える","妻の正体に気づき、終盤（第4・5ターン）に妻のそばにいて、離れに取り残させない"]},
+ "夫":{h:"妻を守る",pre:"",ways:["妻と同じ結末を迎える（二人とも異変に飲み込まれた場合は除く）","妻の正体に気づき、妻のそばにいて（または友人Aから妻の昔を聞いて）、妻を最後まで無事でいさせる（離れに取り残されず、飲み込まれもしない）"]},
  "妻":{h:"自分が何者かを知り、母と向き合う",pre:"自分が何者かを知ったうえで：",ways:["母を送る（送りを成功させる）","母の声に応える","最後に仏間で、母のために動く（写真を供える・名を呼ぶ・火の支度）"]},
  "尋ね人":{h:"叔母の行方を突き止める",pre:"叔母の行方を知ったうえで：",ways:["写真の女性が叔母だと確かめる","自分の手で叔母の名を呼ぶ","（または）送りが成功する"]},
  "友人A":{h:"二人をつなぐ",pre:"",ways:["妻と尋ね人の二人が、互いが従姉妹（いとこ）だと知る（引き合わせは一度だけ）"]},
@@ -504,7 +504,8 @@ function goalMet(p){
  const f=S.f,w=byRole("妻"),grp=o=>o==="escape"?"外":o==="lost"?"飲":"家",did=re=>p.history.some(h=>re.test(h));
  switch(p.role){
   case"大家":return f.success||(p.outcome==="escape"&&!f.truthPublic)||(p.outcome==="escape"&&f.ownerConfessed&&!f.ownerRestrained&&f.prepared&&f.called);
-  case"夫":return grp(p.outcome)===grp(w.outcome)||(has(p,"yukiName")&&has(p,"name")&&w.outcome!=="left"&&(did(/第[45].*(妻のそば|妻の手)/)||has(p,"aboutWife")));
+  case"夫":{if(p.outcome==="lost")return false;
+   return grp(p.outcome)===grp(w.outcome)||(has(p,"yukiName")&&has(p,"name")&&!["left","lost"].includes(w.outcome)&&(did(/妻のそば|妻の手/)||has(p,"aboutWife")))}
   case"妻":return has(p,"identity")&&(f.success||f.wifeAnswer||["offer","call","prep"].includes(p.pre&&p.pre.id));
   case"尋ね人":return (has(p,"fate")&&(has(p,"name")||f.seekerCalled))||f.success;
   case"友人A":return has(byRole("妻"),"kin")&&has(byRole("尋ね人"),"kin");
